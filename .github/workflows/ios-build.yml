@@ -44,6 +44,14 @@ jobs:
         working-directory: frontend
         run: npx cap sync ios
 
+      - name: Set export compliance
+        working-directory: frontend
+        run: |
+          PLIST=ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST" 2>/dev/null || \
+          /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" "$PLIST"
+          echo "Export compliance flag set"
+
       - name: Set app icon
         working-directory: frontend
         run: |
