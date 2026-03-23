@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+.venv/
+__pycache__/
+
+# Build outputs
+frontend/dist/
+frontend/android/build/
+frontend/android/app/build/
+frontend/android/capacitor-cordova-android-plugins/build/
+frontend/android/.gradle/
+frontend/ios/App/Pods/
+*.apk
+*.ipa
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+backend-uvicorn.*.log
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Env / secrets
+.env
+.env.*
+*.p12
+*.mobileprovision
+*.keystore
+
+# Screenshots / scratch (not needed in repo)
+*.png
+*.jpg
+pics_delete/
+Error_review.py
+window_dump.xml
