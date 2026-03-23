@@ -34,10 +34,11 @@ desktop.ini
 *.p12
 *.mobileprovision
 *.keystore
+.certs/
 
 # Screenshots / scratch (not needed in repo)
-*.png
-*.jpg
 pics_delete/
 Error_review.py
 window_dump.xml
+/*.png
+/*.jpg

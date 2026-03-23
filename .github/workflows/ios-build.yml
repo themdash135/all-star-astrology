@@ -40,6 +40,32 @@ jobs:
         working-directory: frontend
         run: npx cap sync ios
 
+      - name: Set app icon
+        working-directory: frontend
+        run: |
+          ICON=resources/icon.png
+          ASSETS=ios/App/App/Assets.xcassets/AppIcon.appiconset
+          if [ -f "$ICON" ] && [ -d "$ASSETS" ]; then
+            npx --yes sharp-cli -i "$ICON" -o "$ASSETS/AppIcon-20x20@1x.png" resize 20 20
+            npx sharp-cli -i "$ICON" -o "$ASSETS/AppIcon-20x20@2x.png" resize 40 40
+            npx sharp-cli -i "$ICON" -o "$ASSETS/AppIcon-20x20@3x.png" resize 60 60
+            npx sharp-cli -i "$ICON" -o "$ASSETS/AppIcon-29x29@1x.png" resize 29 29
+            npx sharp-cli -i "$ICON" -o "$ASSETS/AppIcon-29x29@2x.png" resize 58 58
+            npx sharp-cli -i "$ICON" -o "$ASSETS/AppIcon-29x29@3x.png" resize 87 87
+            npx sharp-cli -i "$ICON" -o "$ASSETS/AppIcon-40x40@1x.png" resize 40 40
+            npx sharp-cli -i "$ICON" -o "$ASSETS/AppIcon-40x40@2x.png" resize 80 80
+            npx sharp-cli -i "$ICON" -o "$ASSETS/AppIcon-40x40@3x.png" resize 120 120
+            npx sharp-cli -i "$ICON" -o "$ASSETS/AppIcon-60x60@2x.png" resize 120 120
+            npx sharp-cli -i "$ICON" -o "$ASSETS/AppIcon-60x60@3x.png" resize 180 180
+            npx sharp-cli -i "$ICON" -o "$ASSETS/AppIcon-76x76@1x.png" resize 76 76
+            npx sharp-cli -i "$ICON" -o "$ASSETS/AppIcon-76x76@2x.png" resize 152 152
+            npx sharp-cli -i "$ICON" -o "$ASSETS/AppIcon-83.5x83.5@2x.png" resize 167 167
+            npx sharp-cli -i "$ICON" -o "$ASSETS/AppIcon-512@2x.png" resize 1024 1024
+            echo "iOS icons generated"
+          else
+            echo "Skipping icon generation — source or target not found"
+          fi
+
       - name: Install CocoaPods
         working-directory: frontend/ios/App
         run: pod install
