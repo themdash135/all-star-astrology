@@ -70,9 +70,18 @@ jobs:
             echo "Skipping icon generation — source or target not found"
           fi
 
-      - name: Install CocoaPods
-        working-directory: frontend/ios/App
-        run: pod install
+      - name: Find and install CocoaPods
+        working-directory: frontend
+        run: |
+          PODFILE=$(find ios -name Podfile -type f | head -1)
+          if [ -n "$PODFILE" ]; then
+            echo "Found Podfile at: $PODFILE"
+            cd "$(dirname "$PODFILE")"
+            pod install
+          else
+            echo "No Podfile found — listing ios structure:"
+            find ios -maxdepth 3 -type f | head -30
+          fi
 
       - name: Install Apple certificate and provisioning profile
         env:
@@ -105,16 +114,19 @@ jobs:
           cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
 
       - name: Build archive
-        working-directory: frontend/ios/App
+        working-directory: frontend
         env:
           TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          xcodebuild -workspace App.xcworkspace \
+          WORKSPACE=$(find ios -name "*.xcworkspace" -not -path "*/Pods/*" | head -1)
+          echo "Using workspace: $WORKSPACE"
+          xcodebuild -workspace "$WORKSPACE" \
             -scheme App \
             -configuration Release \
             -archivePath $RUNNER_TEMP/App.xcarchive \
             -destination 'generic/platform=iOS' \
             DEVELOPMENT_TEAM="$TEAM_ID" \
+            CODE_SIGN_STYLE=Manual \
             archive
 
       - name: Export IPA
