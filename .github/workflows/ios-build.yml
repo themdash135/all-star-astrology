@@ -32,9 +32,13 @@ jobs:
         working-directory: frontend
         run: npm run build
 
+      - name: Install Capacitor iOS
+        working-directory: frontend
+        run: npm install @capacitor/ios
+
       - name: Add iOS platform
         working-directory: frontend
-        run: npx cap add ios || true
+        run: npx cap add ios
 
       - name: Sync Capacitor iOS
         working-directory: frontend
