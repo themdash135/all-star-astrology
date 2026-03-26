@@ -1,17 +1,17 @@
-// API layer — routes through Supabase Edge Functions (gateway) in production,
-// falls back to local backend for development.
+// API layer — uses relative /api/ URLs which resolve to the Cloud Run backend
+// (since the Capacitor WebView loads from the Cloud Run server.url).
+// Supabase gateway is the fallback for when the primary backend is unreachable.
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_KEY || '';
-const IS_DEV = import.meta.env.DEV;
 
-async function localGet(endpoint) {
+async function primaryGet(endpoint) {
   const response = await fetch(`/api/${endpoint}`);
   const payload = await response.json();
   if (!response.ok) throw new Error(payload.detail || `API error ${response.status}`);
   return payload;
 }
 
-async function localPost(endpoint, body) {
+async function primaryPost(endpoint, body) {
   const response = await fetch(`/api/${endpoint}`, {
     method: 'POST',
     headers: {
@@ -25,8 +25,8 @@ async function localPost(endpoint, body) {
   return payload;
 }
 
-async function gatewayGet(endpoint) {
-  if (!SUPABASE_ANON_KEY) throw new Error('Gateway not configured');
+async function fallbackGet(endpoint) {
+  if (!SUPABASE_ANON_KEY) throw new Error('Fallback not configured');
   const response = await fetch(`${SUPABASE_URL}/${endpoint}`, {
     method: 'GET',
     headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
@@ -36,8 +36,8 @@ async function gatewayGet(endpoint) {
   return payload;
 }
 
-async function gatewayPost(endpoint, body) {
-  if (!SUPABASE_ANON_KEY) throw new Error('Gateway not configured');
+async function fallbackPost(endpoint, body) {
+  if (!SUPABASE_ANON_KEY) throw new Error('Fallback not configured');
   const response = await fetch(`${SUPABASE_URL}/${endpoint}`, {
     method: 'POST',
     headers: {
@@ -53,17 +53,19 @@ async function gatewayPost(endpoint, body) {
 }
 
 export async function apiGet(endpoint) {
-  // Dev: hit local backend directly. Production: route through gateway.
-  if (IS_DEV) {
-    try { return await localGet(endpoint); } catch { /* fall through */ }
+  try {
+    return await primaryGet(endpoint);
+  } catch (err) {
+    console.warn(`[API] Primary failed (${err.message}), trying fallback`);
+    return fallbackGet(endpoint);
   }
-  return gatewayGet(endpoint);
 }
 
 export async function apiPost(endpoint, body) {
-  // Dev: hit local backend directly. Production: route through gateway.
-  if (IS_DEV) {
-    try { return await localPost(endpoint, body); } catch { /* fall through */ }
+  try {
+    return await primaryPost(endpoint, body);
+  } catch (err) {
+    console.warn(`[API] Primary failed (${err.message}), trying fallback`);
+    return fallbackPost(endpoint, body);
   }
-  return gatewayPost(endpoint, body);
 }
