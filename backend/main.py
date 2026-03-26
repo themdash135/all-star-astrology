@@ -182,10 +182,11 @@ async def security_middleware(request: Request, call_next):
             origin = request.headers.get("origin", "")
             referer = request.headers.get("referer", "")
             # Allow same-origin requests (frontend served by this backend)
+            # Also allow requests with no origin/referer (native WebView in-app requests)
             is_same_origin = any(
                 allowed in (origin or referer)
                 for allowed in _ALLOWED_ORIGINS
-            ) if (origin or referer) else False
+            ) if (origin or referer) else True  # No origin = in-app WebView
             if provided_key != _BACKEND_API_KEY and not is_same_origin:
                 return JSONResponse(
                     status_code=403,
