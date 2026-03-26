@@ -208,6 +208,22 @@ def health() -> dict[str, Any]:
     return {"status": "ok", "service": "all-star-astrology-platform"}
 
 
+@app.delete("/api/user-data")
+def delete_user_data() -> dict[str, Any]:
+    """GDPR/CCPA data deletion endpoint.
+
+    This app does not persist user data server-side (all readings are
+    computed on-the-fly and returned to the client). Telemetry and session
+    files are disabled in production. This endpoint exists to satisfy
+    privacy compliance requirements and returns confirmation that no
+    server-side data needs deletion.
+    """
+    return {
+        "status": "ok",
+        "message": "No user data is stored server-side. All reading data is computed on-the-fly and returned to your device. To delete local data, clear the app's storage in your device settings.",
+    }
+
+
 @app.post("/api/reading")
 def reading(payload: ReadingRequest) -> dict[str, Any]:
     try:

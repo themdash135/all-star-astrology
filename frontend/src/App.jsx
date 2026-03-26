@@ -3,6 +3,7 @@ import { App as CapApp } from '@capacitor/app';
 
 import { BLANK, FORM_KEY, MOTION_KEY, ORACLE_HISTORY_KEY, RESULT_KEY, SPLASH_KEY, THEME_KEY } from './app/constants.js';
 import { apiPost, apiGet } from './app/api.js';
+import { runSecurityChecks } from './app/security.js';
 import { styles } from './app/styles.js';
 import { readStoredForm, readStoredResult, safeGet, safeRemove, safeSet } from './app/storage.js';
 import { useMotionMode } from './hooks/useMotionMode.js';
@@ -29,6 +30,12 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [securityWarning, setSecurityWarning] = useState(null);
+
+  useEffect(() => {
+    const check = runSecurityChecks();
+    if (check.warning) setSecurityWarning(check.message);
+  }, []);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [theme, setTheme] = useState(() => safeGet(THEME_KEY) || 'dark');
   const { motionSetting, setMotionSetting, reducedMotion } = useMotionMode();
@@ -185,6 +192,11 @@ export default function App() {
   return (
     <>
       <style>{styles}</style>
+      {securityWarning && (
+        <div style={{position:'fixed',top:0,left:0,right:0,zIndex:9999,background:'#b91c1c',color:'#fff',padding:'8px 16px',fontSize:'13px',textAlign:'center'}} onClick={() => setSecurityWarning(null)}>
+          {securityWarning} <span style={{opacity:0.7}}>(tap to dismiss)</span>
+        </div>
+      )}
       <div className="shell">
         <div className="scroll-area">
           {detailSystem ? (
