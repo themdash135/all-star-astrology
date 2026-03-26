@@ -10,3 +10,5 @@ httptools==0.7.1
 typing_extensions==4.15.0
 annotated-types==0.7.0
 lunardate==0.2.2
+slowapi==0.1.9
+limits==5.8.0

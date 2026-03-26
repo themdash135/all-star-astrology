@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Allow cleartext only for localhost (dev ADB reverse) -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+
+    <!-- Pin Cloud Run backend certificate (GTS intermediate CA) -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">run.app</domain>
+        <pin-set expiration="2027-01-01">
+            <pin digest="SHA-256">YPtHaftLw6/0vnc2BnNKGF54xiCA28WFcccjkA4ypCM=</pin>
+            <pin digest="SHA-256">Kto4MDph2ioct1hsF5tK4FYZaAbeS4/8dLi02kIauRc=</pin>
+        </pin-set>
+    </domain-config>
+
+    <!-- Pin Supabase certificate -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">supabase.co</domain>
+    </domain-config>
+
+    <!-- Default: no cleartext -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

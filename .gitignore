@@ -34,7 +34,11 @@ desktop.ini
 *.p12
 *.mobileprovision
 *.keystore
+*.jks
 .certs/
+
+# Playwright / automation scratch
+.playwright-mcp/
 
 # Screenshots / scratch (not needed in repo)
 pics_delete/

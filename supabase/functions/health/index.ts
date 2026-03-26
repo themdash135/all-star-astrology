@@ -1,6 +1,6 @@
-import { jsonResponse, optionsResponse } from "../_shared/cors.ts";
+import { optionsResponse, proxyToBackend } from "../_shared/cors.ts";
 
-Deno.serve((req) => {
-  if (req.method === "OPTIONS") return optionsResponse();
-  return jsonResponse({ status: "ok", timestamp: new Date().toISOString() });
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return optionsResponse(req);
+  return proxyToBackend(req, "health");
 });

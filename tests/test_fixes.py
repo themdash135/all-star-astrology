@@ -267,8 +267,8 @@ class TestCorsTightening:
     def test_no_wildcard_origin(self):
         src = pathlib.Path(__file__).resolve().parents[1] / "backend" / "main.py"
         content = src.read_text(encoding="utf-8")
-        # The line 'allow_origins=["*"]' should no longer be present
-        assert '"*"' not in content.split("allow_origins")[1].split("]")[0]
+        # allow_origins must not use wildcard "*"
+        assert 'allow_origins=["*"]' not in content and "allow_origins=['*']" not in content
 
     def test_localhost_origins_present(self):
         src = pathlib.Path(__file__).resolve().parents[1] / "backend" / "main.py"

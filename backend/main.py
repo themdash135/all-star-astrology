@@ -2,13 +2,20 @@ from __future__ import annotations
 
 import datetime
 import json
+import logging
+import os
 from pathlib import Path
 from typing import Any, Literal, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+
+logger = logging.getLogger(__name__)
 
 from backend.engines import bazi, chinese, combined, daily, gematria, games, kabbalistic, numerology, persian, vedic, western
 from backend.engines.common import CalculationError, build_context
@@ -86,6 +93,15 @@ class GameRequest(BaseModel):
     def validate_game_id(cls, value: Any) -> str:
         return _clean_text(value, field_name='Game ID', required=True, max_length=32)
 
+    @field_validator('params', mode='before')
+    @classmethod
+    def validate_params(cls, value: Any) -> dict:
+        if not isinstance(value, dict):
+            return {}
+        if len(json.dumps(value, default=str)) > 10_000:
+            raise ValueError('Game parameters are too large.')
+        return value
+
 
 class AskRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
@@ -117,24 +133,74 @@ class AskRequest(BaseModel):
         return [str(v)[:280] for v in value[:10] if isinstance(v, str)]
 
 
+_is_production = os.getenv("K_SERVICE") is not None  # Cloud Run sets this
+
+limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
+
 app = FastAPI(
     title="All Star Astrology Platform",
     version="1.0.0",
     description="Multi-system astrology platform with FastAPI backend and React frontend.",
+    docs_url=None if _is_production else "/docs",
+    redoc_url=None if _is_production else "/redoc",
+    openapi_url=None if _is_production else "/openapi.json",
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+_ALLOWED_ORIGINS = [
+    "http://localhost:8892",
+    "http://127.0.0.1:8892",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://allstar-astrology-816912350023.us-central1.run.app",
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:8892",
-        "http://127.0.0.1:8892",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["X-Request-Time", "Content-Type"],
 )
+
+
+_MAX_REQUEST_AGE_SECONDS = 30
+_BACKEND_API_KEY = os.getenv("BACKEND_API_KEY", "")
+
+
+@app.middleware("http")
+async def security_middleware(request: Request, call_next):
+    """API key gate + replay protection for /api/* routes."""
+    from starlette.responses import JSONResponse
+
+    if request.url.path.startswith("/api/"):
+        # API key check — skip for health endpoint and when key is not configured
+        if _BACKEND_API_KEY and request.url.path != "/api/health":
+            provided_key = request.headers.get("X-Backend-Key", "")
+            if provided_key != _BACKEND_API_KEY:
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "Forbidden"},
+                )
+
+        # Replay protection on POST requests
+        if request.method == "POST":
+            ts_header = request.headers.get("X-Request-Time")
+            if ts_header:
+                try:
+                    request_time = float(ts_header)
+                    age = abs(datetime.datetime.now(datetime.timezone.utc).timestamp() - request_time)
+                    if age > _MAX_REQUEST_AGE_SECONDS:
+                        return JSONResponse(
+                            status_code=400,
+                            content={"detail": "Request expired. Please try again."},
+                        )
+                except (ValueError, TypeError):
+                    pass
+
+    return await call_next(request)
 
 
 @app.get("/api/health")
@@ -177,7 +243,8 @@ def reading(payload: ReadingRequest) -> dict[str, Any]:
     except CalculationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:  # pragma: no cover - defensive boundary for API consumers.
-        raise HTTPException(status_code=500, detail=f"Unexpected calculation error: {exc}") from exc
+        logger.exception("Unexpected error in /api/reading")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred.") from exc
 
 
 @app.post("/api/ask")
@@ -264,7 +331,8 @@ def compatibility(payload: CompatibilityRequest) -> dict[str, Any]:
     except CalculationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Compatibility calculation error: {exc}") from exc
+        logger.exception("Unexpected error in /api/compatibility")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred.") from exc
 
 
 @app.get("/api/games")
@@ -408,7 +476,8 @@ def v2_temporal() -> dict[str, Any]:
             "retrograde_reference": retrograde_reference,
         }
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Temporal computation error: {exc}") from exc
+        logger.exception("Unexpected error in /api/v2/temporal")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred.") from exc
 
 
 # Domain mapping: the 6 frontend domains mapped to the 5 internal pipeline domains
@@ -539,7 +608,8 @@ def v2_scores(payload: V2ScoresRequest) -> dict[str, Any]:
             "domains": list(scores.keys()),
         }
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Score computation error: {exc}") from exc
+        logger.exception("Unexpected error in /api/v2/scores")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred.") from exc
 
 
 @app.post("/api/v2/debate")
@@ -683,11 +753,20 @@ def v2_debate(payload: V2DebateRequest) -> dict[str, Any]:
 
         return response
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Debate computation error: {exc}") from exc
+        logger.exception("Unexpected error in /api/v2/debate")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred.") from exc
 
 
 FRONTEND_DIST = Path(__file__).resolve().parents[1] / "frontend" / "dist"
 FRONTEND_V2_DIST = Path(__file__).resolve().parents[1] / "frontend-v2" / "dist"
+
+
+def _safe_resolve(base: Path, user_path: str) -> Path | None:
+    """Resolve user_path under base, returning None if it escapes."""
+    resolved = (base / user_path).resolve()
+    if not str(resolved).startswith(str(base.resolve())):
+        return None
+    return resolved
 
 
 @app.get("/v2", include_in_schema=False)
@@ -695,13 +774,13 @@ FRONTEND_V2_DIST = Path(__file__).resolve().parents[1] / "frontend-v2" / "dist"
 def serve_v2(full_path: str = "") -> FileResponse:
     if full_path.startswith("api"):
         raise HTTPException(status_code=404, detail="Not found")
-    target = FRONTEND_V2_DIST / full_path
-    if target.exists() and target.is_file():
+    target = _safe_resolve(FRONTEND_V2_DIST, full_path)
+    if target and target.exists() and target.is_file():
         return FileResponse(target)
     index_file = FRONTEND_V2_DIST / "index.html"
     if index_file.exists():
         return FileResponse(index_file)
-    raise HTTPException(status_code=404, detail="Frontend V2 has not been built yet.")
+    raise HTTPException(status_code=404, detail="Not found")
 
 
 @app.get("/", include_in_schema=False)
@@ -709,17 +788,17 @@ def serve_root() -> FileResponse:
     index_file = FRONTEND_DIST / "index.html"
     if index_file.exists():
         return FileResponse(index_file)
-    raise HTTPException(status_code=404, detail="Frontend has not been built yet. Run npm install && npm run build in /frontend.")
+    raise HTTPException(status_code=404, detail="Not found")
 
 
 @app.get("/{full_path:path}", include_in_schema=False)
 def serve_spa(full_path: str) -> FileResponse:
     if full_path.startswith("api"):
         raise HTTPException(status_code=404, detail="Not found")
-    target = FRONTEND_DIST / full_path
-    if target.exists() and target.is_file():
+    target = _safe_resolve(FRONTEND_DIST, full_path)
+    if target and target.exists() and target.is_file():
         return FileResponse(target)
     index_file = FRONTEND_DIST / "index.html"
     if index_file.exists():
         return FileResponse(index_file)
-    raise HTTPException(status_code=404, detail="Frontend has not been built yet. Run npm install && npm run build in /frontend.")
+    raise HTTPException(status_code=404, detail="Not found")

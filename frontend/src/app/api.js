@@ -1,6 +1,8 @@
-// API layer — tries local backend first, falls back to Supabase Edge Functions.
-const SUPABASE_URL = 'https://qpjrdljrxpsoezurqgts.supabase.co/functions/v1';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwanJkbGpyeHBzb2V6dXJxZ3RzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwNzE2MjMsImV4cCI6MjA4OTY0NzYyM30.cYLP8Uq71xZfPBLYSyE6RUvWViN-raS0Dbn5uwuJhIU';
+// API layer — routes through Supabase Edge Functions (gateway) in production,
+// falls back to local backend for development.
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_KEY || '';
+const IS_DEV = import.meta.env.DEV;
 
 async function localGet(endpoint) {
   const response = await fetch(`/api/${endpoint}`);
@@ -12,7 +14,10 @@ async function localGet(endpoint) {
 async function localPost(endpoint, body) {
   const response = await fetch(`/api/${endpoint}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Request-Time': String(Date.now() / 1000),
+    },
     body: JSON.stringify(body),
   });
   const payload = await response.json();
@@ -20,7 +25,8 @@ async function localPost(endpoint, body) {
   return payload;
 }
 
-async function supabaseGet(endpoint) {
+async function gatewayGet(endpoint) {
+  if (!SUPABASE_ANON_KEY) throw new Error('Gateway not configured');
   const response = await fetch(`${SUPABASE_URL}/${endpoint}`, {
     method: 'GET',
     headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
@@ -30,12 +36,14 @@ async function supabaseGet(endpoint) {
   return payload;
 }
 
-async function supabasePost(endpoint, body) {
+async function gatewayPost(endpoint, body) {
+  if (!SUPABASE_ANON_KEY) throw new Error('Gateway not configured');
   const response = await fetch(`${SUPABASE_URL}/${endpoint}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'X-Request-Time': String(Date.now() / 1000),
     },
     body: JSON.stringify(body),
   });
@@ -45,20 +53,17 @@ async function supabasePost(endpoint, body) {
 }
 
 export async function apiGet(endpoint) {
-  try {
-    return await localGet(endpoint);
-  } catch {
-    return supabaseGet(endpoint);
+  // Dev: hit local backend directly. Production: route through gateway.
+  if (IS_DEV) {
+    try { return await localGet(endpoint); } catch { /* fall through */ }
   }
+  return gatewayGet(endpoint);
 }
 
 export async function apiPost(endpoint, body) {
-  try {
-    return await localPost(endpoint, body);
-  } catch (err) {
-    console.warn(`[API] Local backend failed (${err.message}), falling back to Supabase`);
-    const result = await supabasePost(endpoint, body);
-    result._source = 'supabase';
-    return result;
+  // Dev: hit local backend directly. Production: route through gateway.
+  if (IS_DEV) {
+    try { return await localPost(endpoint, body); } catch { /* fall through */ }
   }
+  return gatewayPost(endpoint, body);
 }
