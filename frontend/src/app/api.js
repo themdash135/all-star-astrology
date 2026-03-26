@@ -1,8 +1,8 @@
 // API layer — uses relative /api/ URLs which resolve to the Cloud Run backend
 // (since the Capacitor WebView loads from the Cloud Run server.url).
-// Supabase gateway is the fallback for when the primary backend is unreachable.
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_KEY || '';
+const HAS_FALLBACK = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
 
 async function primaryGet(endpoint) {
   const response = await fetch(`/api/${endpoint}`);
@@ -26,7 +26,6 @@ async function primaryPost(endpoint, body) {
 }
 
 async function fallbackGet(endpoint) {
-  if (!SUPABASE_ANON_KEY) throw new Error('Fallback not configured');
   const response = await fetch(`${SUPABASE_URL}/${endpoint}`, {
     method: 'GET',
     headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
@@ -37,7 +36,6 @@ async function fallbackGet(endpoint) {
 }
 
 async function fallbackPost(endpoint, body) {
-  if (!SUPABASE_ANON_KEY) throw new Error('Fallback not configured');
   const response = await fetch(`${SUPABASE_URL}/${endpoint}`, {
     method: 'POST',
     headers: {
@@ -56,6 +54,7 @@ export async function apiGet(endpoint) {
   try {
     return await primaryGet(endpoint);
   } catch (err) {
+    if (!HAS_FALLBACK) throw err;
     console.warn(`[API] Primary failed (${err.message}), trying fallback`);
     return fallbackGet(endpoint);
   }
@@ -65,6 +64,7 @@ export async function apiPost(endpoint, body) {
   try {
     return await primaryPost(endpoint, body);
   } catch (err) {
+    if (!HAS_FALLBACK) throw err;
     console.warn(`[API] Primary failed (${err.message}), trying fallback`);
     return fallbackPost(endpoint, body);
   }
