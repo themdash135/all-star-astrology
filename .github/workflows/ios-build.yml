@@ -57,6 +57,15 @@ jobs:
         working-directory: frontend
         run: npx cap sync ios
 
+      - name: Bump iOS build number
+        working-directory: frontend
+        run: |
+          PLIST=ios/App/App/Info.plist
+          BUILD_NUM=${{ github.run_number }}
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUM" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 1.2.0" "$PLIST"
+          echo "Set iOS build number to $BUILD_NUM, version 1.2.0"
+
       - name: Set export compliance
         working-directory: frontend
         run: |
