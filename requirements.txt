@@ -9,3 +9,4 @@ anyio==4.12.1
 httptools==0.7.1
 typing_extensions==4.15.0
 annotated-types==0.7.0
+lunardate==0.2.2
