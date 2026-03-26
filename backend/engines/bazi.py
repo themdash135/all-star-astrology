@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from datetime import datetime, timedelta
 from typing import Any
 
 from .common import (
@@ -33,7 +34,56 @@ from .common import (
 
 STEM_NAME_TO_INDEX = {data[0]: idx for idx, data in enumerate(BAZI_STEMS)}
 
+# ── Chinese characters for stems and branches ──────────────────────
+STEM_CHINESE = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"]
+BRANCH_CHINESE = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
 
+# ── Element colors (for frontend) ─────────────────────────────────
+ELEMENT_COLORS = {
+    "Wood": "#4caf50",
+    "Fire": "#f44336",
+    "Earth": "#ff9800",
+    "Metal": "#ffd700",
+    "Water": "#2196f3",
+}
+
+# ── Na Yin: 60 Jiazi cycle elements ───────────────────────────────
+NA_YIN = [
+    "Metal in the Sea", "Metal in the Sea",
+    "Fire in the Furnace", "Fire in the Furnace",
+    "Wood of the Forest", "Wood of the Forest",
+    "Metal on the Road", "Metal on the Road",
+    "Fire of the Thunderbolt", "Fire of the Thunderbolt",
+    "Earth on the Roof", "Earth on the Roof",
+    "Water in the Stream", "Water in the Stream",
+    "Earth on the Wall", "Earth on the Wall",
+    "Metal of the Hairpin", "Metal of the Hairpin",
+    "Fire of the Mulberry", "Fire of the Mulberry",
+    "Water of the Spring", "Water of the Spring",
+    "Earth of the Sand", "Earth of the Sand",
+    "Metal of the Sword", "Metal of the Sword",
+    "Fire of the Mountain", "Fire of the Mountain",
+    "Wood of the Flatland", "Wood of the Flatland",
+    "Water of the River", "Water of the River",
+    "Earth of the Fortress", "Earth of the Fortress",
+    "Metal of the Axe", "Metal of the Axe",
+    "Fire of the Lamp", "Fire of the Lamp",
+    "Wood of the Pomegranate", "Wood of the Pomegranate",
+    "Water of the Ocean", "Water of the Ocean",
+    "Earth of the Thunderclap", "Earth of the Thunderclap",
+    "Metal of the Mirror", "Metal of the Mirror",
+    "Fire of the Peak", "Fire of the Peak",
+    "Wood of the Willow", "Wood of the Willow",
+    "Water of the Well", "Water of the Well",
+    "Earth of the Roof Tiles", "Earth of the Roof Tiles",
+    "Metal of the White Wax", "Metal of the White Wax",
+    "Fire of the Sky", "Fire of the Sky",
+    "Wood of the Cypress", "Wood of the Cypress",
+    "Water of the Tap", "Water of the Tap",
+    "Earth of the Earth", "Earth of the Earth",
+]
+
+# ── Branch combinations and clashes ───────────────────────────────
 BRANCH_COMBINATIONS = {
     frozenset({"Zi", "Chou"}),
     frozenset({"Yin", "Hai"}),
@@ -52,19 +102,167 @@ BRANCH_CLASHES = {
     frozenset({"Si", "Hai"}),
 }
 
+BRANCH_HARMS = {
+    frozenset({"Zi", "Wei"}),
+    frozenset({"Chou", "Wu"}),
+    frozenset({"Yin", "Si"}),
+    frozenset({"Mao", "Chen"}),
+    frozenset({"Shen", "Hai"}),
+    frozenset({"You", "Xu"}),
+}
+
+BRANCH_DESTRUCTIONS = {
+    frozenset({"Zi", "You"}),
+    frozenset({"Chou", "Chen"}),
+    frozenset({"Yin", "Hai"}),
+    frozenset({"Mao", "Wu"}),
+    frozenset({"Si", "Shen"}),
+    frozenset({"Wei", "Xu"}),
+}
+
 PEACH_BLOSSOM_BRANCH = {
-    "Zi": "You",
-    "Chen": "You",
-    "Shen": "You",
-    "Chou": "Wu",
-    "Si": "Wu",
-    "You": "Wu",
-    "Yin": "Mao",
-    "Wu": "Mao",
-    "Xu": "Mao",
-    "Hai": "Zi",
-    "Mao": "Zi",
-    "Wei": "Zi",
+    "Zi": "You", "Chen": "You", "Shen": "You",
+    "Chou": "Wu", "Si": "Wu", "You": "Wu",
+    "Yin": "Mao", "Wu": "Mao", "Xu": "Mao",
+    "Hai": "Zi", "Mao": "Zi", "Wei": "Zi",
+}
+
+# ── Symbolic stars lookup by day branch ───────────────────────────
+NOBLEMAN_STAR = {
+    "Jia": ["Chou", "Wei"], "Yi": ["Zi", "Shen"], "Bing": ["You", "Hai"],
+    "Ding": ["You", "Hai"], "Wu": ["Chou", "Wei"], "Ji": ["Zi", "Shen"],
+    "Geng": ["Chou", "Wei"], "Xin": ["Yin", "Wu"], "Ren": ["Mao", "Si"],
+    "Gui": ["Mao", "Si"],
+}
+
+ACADEMIC_STAR = {
+    "Water": "Shen", "Wood": "Hai", "Fire": "Yin",
+    "Metal": "Si", "Earth": "Shen",
+}
+
+TRAVELLING_HORSE = {
+    "Zi": "Yin", "Chen": "Yin", "Shen": "Yin",
+    "Chou": "Hai", "Si": "Hai", "You": "Hai",
+    "Yin": "Shen", "Wu": "Shen", "Xu": "Shen",
+    "Hai": "Si", "Mao": "Si", "Wei": "Si",
+}
+
+# ── Day Master personality profiles ───────────────────────────────
+DAY_MASTER_PROFILES = {
+    "Jia": {
+        "title": "Jia Wood — The Towering Tree",
+        "chinese": "甲木",
+        "nature": "Yang Wood",
+        "personality": "You are like a tall, upright tree — principled, ambitious, and steadfast. You value growth, integrity, and leadership. You tend to stand firm in your beliefs and naturally take charge in situations. Your sense of justice is strong, and you are drawn to causes larger than yourself.",
+        "strengths": ["Natural leader", "Principled and ethical", "Resilient under pressure", "Growth-oriented mindset", "Protective of loved ones"],
+        "challenges": ["Can be rigid or stubborn", "May resist compromise", "Sometimes too idealistic", "Difficulty adapting quickly"],
+        "career": "Leadership, management, education, architecture, law, forestry, urban planning",
+        "relationships": "You seek partners who respect your independence while offering warmth and nurturing. You are loyal and protective but need space to grow.",
+    },
+    "Yi": {
+        "title": "Yi Wood — The Flexible Vine",
+        "chinese": "乙木",
+        "nature": "Yin Wood",
+        "personality": "You are like a vine or flower — graceful, adaptable, and quietly persistent. You find ways around obstacles rather than confronting them head-on. Your charm and flexibility make you excellent at building relationships and navigating complex social situations.",
+        "strengths": ["Highly adaptable", "Socially skilled", "Creative and artistic", "Gentle persuasion", "Resilient in subtle ways"],
+        "challenges": ["Can be indecisive", "May avoid confrontation too much", "Sometimes overly dependent", "Can lose direction easily"],
+        "career": "Arts, design, fashion, counseling, diplomacy, floristry, writing, healthcare",
+        "relationships": "You seek harmony and emotional connection. You are nurturing and supportive but need a partner who provides stability and direction.",
+    },
+    "Bing": {
+        "title": "Bing Fire — The Blazing Sun",
+        "chinese": "丙火",
+        "nature": "Yang Fire",
+        "personality": "You are like the sun — radiant, warm, generous, and impossible to ignore. Your natural charisma lights up any room. You are passionate, optimistic, and have a big heart. You inspire others with your enthusiasm and vision.",
+        "strengths": ["Charismatic and inspiring", "Generous and warm-hearted", "Visionary thinker", "Courageous and bold", "Natural optimist"],
+        "challenges": ["Can be impulsive or dramatic", "May burn out from overgiving", "Sometimes scattered focus", "Ego can run hot"],
+        "career": "Entertainment, media, public speaking, marketing, politics, energy sector, hospitality",
+        "relationships": "You love passionately and openly. You need a partner who can match your energy and appreciate your warmth without being overwhelmed by your intensity.",
+    },
+    "Ding": {
+        "title": "Ding Fire — The Candlelight",
+        "chinese": "丁火",
+        "nature": "Yin Fire",
+        "personality": "You are like a candle flame — intimate, perceptive, and quietly brilliant. You illuminate the darkness with insight and warmth. Your intuition is sharp, and you have a gift for understanding people at a deep level.",
+        "strengths": ["Deeply intuitive", "Thoughtful and perceptive", "Warm and caring in close circles", "Intellectual depth", "Strong inner vision"],
+        "challenges": ["Can be moody or anxious", "May overthink situations", "Sometimes withdrawn", "Prone to emotional intensity"],
+        "career": "Psychology, research, writing, spirituality, fine arts, technology, medicine",
+        "relationships": "You form deep, meaningful bonds. You need emotional depth and intellectual stimulation from your partner. Surface-level connections leave you cold.",
+    },
+    "Wu": {
+        "title": "Wu Earth — The Great Mountain",
+        "chinese": "戊土",
+        "nature": "Yang Earth",
+        "personality": "You are like a mountain — solid, dependable, and immovable. People naturally trust and rely on you. You have great patience and a grounding presence that calms those around you. Your loyalty and steadiness are your greatest assets.",
+        "strengths": ["Extremely reliable", "Patient and steady", "Strong and protective", "Excellent mediator", "Grounded in reality"],
+        "challenges": ["Can be too conservative", "May resist change", "Sometimes possessive", "Slow to take action"],
+        "career": "Real estate, banking, agriculture, construction, government, insurance, mining",
+        "relationships": "You are a devoted partner who values stability and commitment. You express love through actions rather than words and seek a partner who appreciates loyalty.",
+    },
+    "Ji": {
+        "title": "Ji Earth — The Fertile Garden",
+        "chinese": "己土",
+        "nature": "Yin Earth",
+        "personality": "You are like fertile soil — nurturing, resourceful, and constantly producing. You have a gift for taking care of others and creating abundance from seemingly nothing. Your warmth draws people to you naturally.",
+        "strengths": ["Nurturing and supportive", "Resourceful and practical", "Emotionally intelligent", "Good with finances", "Creates harmony"],
+        "challenges": ["Can worry excessively", "May be overly self-sacrificing", "Sometimes manipulative when stressed", "Tendency to hoard"],
+        "career": "Food industry, healthcare, childcare, human resources, finance, gardening, charity",
+        "relationships": "You are deeply caring and attentive. You tend to give a lot in relationships and need a partner who reciprocates your generosity and doesn't take advantage.",
+    },
+    "Geng": {
+        "title": "Geng Metal — The Mighty Sword",
+        "chinese": "庚金",
+        "nature": "Yang Metal",
+        "personality": "You are like a sword or axe — sharp, decisive, and powerful. You have a strong sense of justice and are not afraid to cut through complications. Your directness and courage make you a formidable ally and a respected leader.",
+        "strengths": ["Decisive and action-oriented", "Strong sense of justice", "Courageous and tough", "Loyal and direct", "Natural fighter and protector"],
+        "challenges": ["Can be harsh or blunt", "May be overly aggressive", "Difficulty showing vulnerability", "Sometimes ruthless"],
+        "career": "Military, law enforcement, surgery, engineering, fitness, martial arts, metalwork, technology",
+        "relationships": "You value honesty and strength in a partner. You protect fiercely but struggle with emotional expression. You need a partner who can soften your edges.",
+    },
+    "Xin": {
+        "title": "Xin Metal — The Precious Jewel",
+        "chinese": "辛金",
+        "nature": "Yin Metal",
+        "personality": "You are like a gemstone — refined, beautiful, and valuable. You have high standards and an eye for quality. Your sensitivity and taste set you apart. Beneath your polished exterior is a sharp mind and a vulnerable heart.",
+        "strengths": ["Refined taste and standards", "Sharp intellect", "Sensitive and empathetic", "Artistic sensibility", "Detail-oriented"],
+        "challenges": ["Can be perfectionistic", "May be overly critical", "Sensitive to criticism", "Sometimes vain or materialistic"],
+        "career": "Jewelry, luxury goods, finance, law, beauty industry, technology, music, precision work",
+        "relationships": "You seek beauty and quality in relationships. You are romantic and attentive but can be demanding. You need a partner who meets your standards while accepting your sensitivity.",
+    },
+    "Ren": {
+        "title": "Ren Water — The Mighty Ocean",
+        "chinese": "壬水",
+        "nature": "Yang Water",
+        "personality": "You are like the ocean — vast, powerful, and constantly moving. Your mind is expansive and you think in big, sweeping terms. You are adventurous, philosophical, and drawn to exploration of all kinds.",
+        "strengths": ["Visionary and big-picture thinker", "Adventurous and free-spirited", "Intelligent and philosophical", "Adaptable to any situation", "Strong survival instinct"],
+        "challenges": ["Can be restless or unfocused", "May lack follow-through", "Sometimes reckless", "Difficulty with routine"],
+        "career": "Travel, import/export, shipping, philosophy, technology, consulting, journalism, exploration",
+        "relationships": "You need freedom in relationships. You are generous and exciting but can be unpredictable. You seek a partner who can ride the waves with you.",
+    },
+    "Gui": {
+        "title": "Gui Water — The Morning Dew",
+        "chinese": "癸水",
+        "nature": "Yin Water",
+        "personality": "You are like morning dew or rain — subtle, nourishing, and perceptive. You have extraordinary intuition and a gentle yet penetrating mind. You see through surfaces to the hidden layers beneath.",
+        "strengths": ["Exceptional intuition", "Quietly influential", "Deep emotional intelligence", "Creative and imaginative", "Patient and persistent"],
+        "challenges": ["Can be secretive", "May be overly passive", "Prone to depression if stagnant", "Difficulty asserting boundaries"],
+        "career": "Research, psychology, occult sciences, writing, healing, music, spiritual work, data analysis",
+        "relationships": "You connect at a soul level. You are devoted and intuitive about your partner's needs but can be hard to read. You need a partner who can navigate your emotional depths.",
+    },
+}
+
+# ── Ten God descriptions ──────────────────────────────────────────
+TEN_GOD_INFO = {
+    "Friend": {"chinese": "比肩", "category": "Parallel", "element_type": "self"},
+    "Rob Wealth": {"chinese": "劫财", "category": "Parallel", "element_type": "self"},
+    "Eating God": {"chinese": "食神", "category": "Output", "element_type": "output"},
+    "Hurting Officer": {"chinese": "伤官", "category": "Output", "element_type": "output"},
+    "Indirect Wealth": {"chinese": "偏财", "category": "Wealth", "element_type": "wealth"},
+    "Direct Wealth": {"chinese": "正财", "category": "Wealth", "element_type": "wealth"},
+    "Seven Killings": {"chinese": "七杀", "category": "Power", "element_type": "power"},
+    "Direct Officer": {"chinese": "正官", "category": "Power", "element_type": "power"},
+    "Indirect Resource": {"chinese": "偏印", "category": "Resource", "element_type": "resource"},
+    "Direct Resource": {"chinese": "正印", "category": "Resource", "element_type": "resource"},
 }
 
 
@@ -86,21 +284,49 @@ def _ten_god(day_stem_idx: int, other_stem_idx: int) -> str:
     return f"{dm_name} to {other_name}"
 
 
+def _na_yin(stem_idx: int, branch_idx: int) -> str:
+    sexagenary = (stem_idx % 10) + (branch_idx % 12)
+    # The proper sexagenary index: find the 60-cycle position
+    # stem_idx cycles 0-9, branch_idx cycles 0-11
+    # The sexagenary pair number: both must share parity
+    idx = (stem_idx % 10) * 6 + (branch_idx % 12) // 2
+    return NA_YIN[idx % 60]
+
+
 def _pillar(stem_idx: int, branch_idx: int, day_stem_idx: int) -> dict[str, Any]:
     stem_name, stem_element, stem_polarity = BAZI_STEMS[stem_idx]
     branch_name, animal, branch_element = BAZI_BRANCHES[branch_idx]
-    hidden = [{"stem": name, "weight": weight, "ten_god": _ten_god(day_stem_idx, STEM_NAME_TO_INDEX.get(name, 0))} for name, weight in BAZI_HIDDEN_STEMS[branch_name]]
+    hidden = [
+        {
+            "stem": name,
+            "chinese": STEM_CHINESE[STEM_NAME_TO_INDEX.get(name, 0)],
+            "element": BAZI_STEMS[STEM_NAME_TO_INDEX.get(name, 0)][1],
+            "weight": weight,
+            "ten_god": _ten_god(day_stem_idx, STEM_NAME_TO_INDEX.get(name, 0)),
+        }
+        for name, weight in BAZI_HIDDEN_STEMS[branch_name]
+    ]
+    tg = _ten_god(day_stem_idx, stem_idx)
+    tg_info = TEN_GOD_INFO.get(tg, {})
     return {
         "stem_index": stem_idx,
         "branch_index": branch_idx,
         "stem": stem_name,
+        "stem_chinese": STEM_CHINESE[stem_idx % 10],
         "stem_element": stem_element,
         "stem_polarity": stem_polarity,
+        "stem_color": ELEMENT_COLORS[stem_element],
         "branch": branch_name,
+        "branch_chinese": BRANCH_CHINESE[branch_idx % 12],
         "animal": animal,
         "branch_element": branch_element,
+        "branch_color": ELEMENT_COLORS[branch_element],
         "name": f"{stem_name} {branch_name}",
-        "ten_god": _ten_god(day_stem_idx, stem_idx),
+        "chinese_name": f"{STEM_CHINESE[stem_idx % 10]}{BRANCH_CHINESE[branch_idx % 12]}",
+        "ten_god": tg,
+        "ten_god_chinese": tg_info.get("chinese", ""),
+        "ten_god_category": tg_info.get("category", ""),
+        "na_yin": _na_yin(stem_idx, branch_idx),
         "hidden_stems": hidden,
     }
 
@@ -132,10 +358,14 @@ def _element_balance(pillars: dict[str, Any]) -> dict[str, Any]:
         for hidden in pillar["hidden_stems"]:
             hidden_idx = STEM_NAME_TO_INDEX.get(hidden["stem"], 0)
             totals[BAZI_STEMS[hidden_idx][1]] += hidden["weight"]
+    total_weight = sum(totals.values()) or 1.0
+    percentages = {element: round2(value / total_weight * 100) for element, value in totals.items()}
     dominant = max(totals.items(), key=lambda item: item[1])[0]
     weakest = min(totals.items(), key=lambda item: item[1])[0]
     return {
         "totals": {key: round2(value) for key, value in totals.items()},
+        "percentages": percentages,
+        "colors": ELEMENT_COLORS,
         "dominant": dominant,
         "weakest": weakest,
     }
@@ -156,24 +386,175 @@ def _day_master_strength(pillars: dict[str, Any], balance: dict[str, Any]) -> di
         season_bonus -= 1.5
     support += season_bonus
 
+    total = support + drain or 1.0
+    support_pct = round2(support / total * 100)
+    drain_pct = round2(drain / total * 100)
+
     strong = support >= drain
     if strong:
         favorable = [GENERATION[day_master_element], CONTROLS[day_master_element], controlled_by(day_master_element)]
-        strategy = "The day master is strong enough to benefit from output, wealth, and authority elements."
+        unfavorable = [day_master_element, resource_element]
+        strategy = "The Day Master is strong — you thrive when channeling energy outward through output, wealth pursuit, and taking on responsibility."
     else:
         favorable = [day_master_element, resource_element]
-        strategy = "The day master is on the weaker side and benefits from self and resource elements."
+        unfavorable = [GENERATION[day_master_element], CONTROLS[day_master_element], controlled_by(day_master_element)]
+        strategy = "The Day Master needs support — you do best when nourished by your own element and resource element. Avoid overextending."
 
     return {
         "day_master_element": day_master_element,
+        "day_master_color": ELEMENT_COLORS[day_master_element],
         "resource_element": resource_element,
         "support_score": round2(support),
         "drain_score": round2(drain),
+        "support_pct": support_pct,
+        "drain_pct": drain_pct,
         "season_bonus": round2(season_bonus),
         "strong": strong,
+        "strength_label": "Strong" if strong else "Weak",
         "favorable": favorable,
+        "unfavorable": unfavorable,
+        "favorable_colors": [ELEMENT_COLORS[e] for e in favorable],
+        "unfavorable_colors": [ELEMENT_COLORS[e] for e in unfavorable],
         "strategy": strategy,
     }
+
+
+def _symbolic_stars(natal: dict[str, Any]) -> list[dict[str, Any]]:
+    stars = []
+    day_stem = natal["day"]["stem"]
+    day_branch = natal["day"]["branch"]
+    year_branch = natal["year"]["branch"]
+    all_branches = [natal[k]["branch"] for k in ["year", "month", "day", "hour"]]
+
+    # Nobleman Star (Tian Yi Gui Ren)
+    noble_branches = NOBLEMAN_STAR.get(day_stem, [])
+    for b in all_branches:
+        if b in noble_branches:
+            stars.append({
+                "name": "Nobleman Star",
+                "chinese": "天乙贵人",
+                "description": "Help from influential people arrives when you need it most. You attract benefactors and mentors naturally.",
+                "found_in": b,
+                "positive": True,
+            })
+            break
+
+    # Academic Star (Wen Chang)
+    dm_element = natal["day"]["stem_element"]
+    academic_branch = ACADEMIC_STAR.get(dm_element, "")
+    for b in all_branches:
+        if b == academic_branch:
+            stars.append({
+                "name": "Academic Star",
+                "chinese": "文昌",
+                "description": "Strong aptitude for learning, writing, and intellectual pursuits. Academic success comes more easily.",
+                "found_in": b,
+                "positive": True,
+            })
+            break
+
+    # Travelling Horse (Yi Ma)
+    horse_branch = TRAVELLING_HORSE.get(year_branch, "")
+    for b in all_branches:
+        if b == horse_branch:
+            stars.append({
+                "name": "Travelling Horse",
+                "chinese": "驿马",
+                "description": "A life involving travel, movement, and change. You are restless and drawn to new horizons.",
+                "found_in": b,
+                "positive": True,
+            })
+            break
+
+    # Peach Blossom (Tao Hua)
+    peach = PEACH_BLOSSOM_BRANCH.get(day_branch, "")
+    for b in all_branches:
+        if b == peach:
+            stars.append({
+                "name": "Peach Blossom",
+                "chinese": "桃花",
+                "description": "Strong romantic appeal and charm. You attract attention and admirers easily. Can indicate artistic talent.",
+                "found_in": b,
+                "positive": True,
+            })
+            break
+
+    # Branch interactions as stars
+    for i, a in enumerate(all_branches):
+        for b in all_branches[i + 1:]:
+            pair = frozenset({a, b})
+            if pair in BRANCH_CLASHES:
+                stars.append({
+                    "name": "Branch Clash",
+                    "chinese": "相冲",
+                    "description": f"{a} clashes with {b} — tension, disruption, and forced change in the areas governed by these pillars.",
+                    "found_in": f"{a}–{b}",
+                    "positive": False,
+                })
+            if pair in BRANCH_HARMS:
+                stars.append({
+                    "name": "Branch Harm",
+                    "chinese": "相害",
+                    "description": f"{a} harms {b} — hidden resentment, betrayal, or health issues related to these pillars.",
+                    "found_in": f"{a}–{b}",
+                    "positive": False,
+                })
+
+    return stars
+
+
+def _da_yun(natal: dict[str, Any], birth_year: int, gender: str) -> list[dict[str, Any]]:
+    """Calculate 10-Year Luck Periods (Da Yun / 大运)."""
+    day_stem_idx = natal["day"]["stem_index"]
+    year_stem_polarity = BAZI_STEMS[natal["year"]["stem_index"]][2]
+    is_male = gender.lower() in ("male", "m", "man", "boy")
+
+    # Direction: forward if (male+yang) or (female+yin), backward otherwise
+    forward = (is_male and year_stem_polarity == "Yang") or (not is_male and year_stem_polarity == "Yin")
+
+    month_stem = natal["month"]["stem_index"]
+    month_branch = natal["month"]["branch_index"]
+
+    periods = []
+    for i in range(9):  # 9 luck periods covering ~90 years
+        offset = i + 1 if forward else -(i + 1)
+        stem = (month_stem + offset) % 10
+        branch = (month_branch + offset) % 12
+        start_age = 1 + i * 10
+        end_age = start_age + 9
+        start_year = birth_year + start_age
+        end_year = birth_year + end_age
+
+        stem_name, stem_element, stem_polarity = BAZI_STEMS[stem]
+        branch_name, animal, branch_element = BAZI_BRANCHES[branch]
+        tg = _ten_god(day_stem_idx, stem)
+        tg_info = TEN_GOD_INFO.get(tg, {})
+
+        periods.append({
+            "index": i,
+            "start_age": start_age,
+            "end_age": end_age,
+            "start_year": start_year,
+            "end_year": end_year,
+            "age_range": f"{start_age}–{end_age}",
+            "year_range": f"{start_year}–{end_year}",
+            "stem": stem_name,
+            "stem_chinese": STEM_CHINESE[stem],
+            "stem_element": stem_element,
+            "stem_color": ELEMENT_COLORS[stem_element],
+            "branch": branch_name,
+            "branch_chinese": BRANCH_CHINESE[branch],
+            "animal": animal,
+            "branch_element": branch_element,
+            "branch_color": ELEMENT_COLORS[branch_element],
+            "pillar_name": f"{stem_name} {branch_name}",
+            "chinese_name": f"{STEM_CHINESE[stem]}{BRANCH_CHINESE[branch]}",
+            "ten_god": tg,
+            "ten_god_chinese": tg_info.get("chinese", ""),
+            "na_yin": _na_yin(stem, branch),
+        })
+
+    return periods
 
 
 def _branch_interaction(a: str, b: str) -> tuple[int, str]:
@@ -264,6 +645,13 @@ def _score_chart(natal: dict[str, Any], current: dict[str, Any], balance: dict[s
     return ({key: round2(clamp(value, 5, 95)) for key, value in scores.items()}, reasons)
 
 
+def _find_current_luck_period(luck_periods: list[dict], age: int) -> dict | None:
+    for period in luck_periods:
+        if period["start_age"] <= age <= period["end_age"]:
+            return period
+    return None
+
+
 def calculate(context: dict[str, Any]) -> dict[str, Any]:
     natal = _four_pillars(context["birth_local"], context["jd_ut"])
     current = _four_pillars(context["now_local"], context["current_jd_ut"])
@@ -272,6 +660,53 @@ def calculate(context: dict[str, Any]) -> dict[str, Any]:
 
     scores, reason_map = _score_chart(natal, current, balance, strength)
 
+    # Symbolic stars
+    stars = _symbolic_stars(natal)
+
+    # Da Yun (10-year luck periods)
+    birth_year = context["birth_local"].year
+    gender = context.get("gender", "male")
+    luck_periods = _da_yun(natal, birth_year, gender)
+
+    # Current age and active luck period
+    age = context.get("age", 0)
+    if not age:
+        age = (context["now_local"] - context["birth_local"]).days // 365
+    current_luck = _find_current_luck_period(luck_periods, age)
+
+    # Day Master profile
+    dm_stem = natal["day"]["stem"]
+    dm_profile = DAY_MASTER_PROFILES.get(dm_stem, {})
+
+    # Build pillar data for frontend (enriched)
+    pillars_data = {}
+    for key in ["year", "month", "day", "hour"]:
+        p = natal[key]
+        pillars_data[key] = p
+
+    # Branch interactions between natal pillars
+    branch_interactions = []
+    pillar_keys = ["year", "month", "day", "hour"]
+    for i, k1 in enumerate(pillar_keys):
+        for k2 in pillar_keys[i + 1:]:
+            b1 = natal[k1]["branch"]
+            b2 = natal[k2]["branch"]
+            pair = frozenset({b1, b2})
+            interaction = None
+            if pair in BRANCH_COMBINATIONS:
+                interaction = {"type": "combination", "label": "Combination", "chinese": "六合", "positive": True}
+            elif pair in BRANCH_CLASHES:
+                interaction = {"type": "clash", "label": "Clash", "chinese": "相冲", "positive": False}
+            elif pair in BRANCH_HARMS:
+                interaction = {"type": "harm", "label": "Harm", "chinese": "相害", "positive": False}
+            elif pair in BRANCH_DESTRUCTIONS:
+                interaction = {"type": "destruction", "label": "Destruction", "chinese": "相破", "positive": False}
+            if interaction:
+                interaction["pillars"] = f"{k1.title()}–{k2.title()}"
+                interaction["branches"] = f"{b1}–{b2}"
+                branch_interactions.append(interaction)
+
+    # Tables for detailed data tab (kept for backward compat)
     natal_rows = []
     for key in ["year", "month", "day", "hour"]:
         pillar = natal[key]
@@ -304,30 +739,33 @@ def calculate(context: dict[str, Any]) -> dict[str, Any]:
             driver_rows.append([category.title(), line])
 
     day_master = natal["day"]
-    headline = f"{day_master['stem_element']} {day_master['stem']} Day Master"
+    headline = f"{day_master['stem_chinese']} {day_master['stem']} {day_master['stem_element']} Day Master"
 
     summary = [
-        f"This BaZi engine uses solar-term months and Li Chun year boundaries to derive the Four Pillars. Your day master is {day_master['stem']} ({day_master['stem_element']}), which is treated as the center of the chart.",
-        f"Element balance shows {balance['dominant']} as the dominant natal element and {balance['weakest']} as the weakest. {strength['strategy']}",
-        f"Current probabilities are generated by comparing natal branches and element balance against the current year, month, day, and hour pillars.",
+        f"Your Day Master is {day_master['stem']} ({day_master['stem_chinese']}) — {day_master['stem_element']} {day_master['stem_polarity']}. This is the core of your BaZi chart and defines how you interact with the world.",
+        f"Element balance: {balance['dominant']} dominates at {balance['percentages'][balance['dominant']]}%, while {balance['weakest']} is weakest at {balance['percentages'][balance['weakest']]}%. {strength['strategy']}",
+        f"Current transit pillars are {current['year']['chinese_name']} {current['month']['chinese_name']} {current['day']['chinese_name']} {current['hour']['chinese_name']}, shaping today's energy.",
     ]
 
     highlights = [
-        highlight("Day Master", f"{day_master['stem']} ({day_master['stem_element']})"),
-        highlight("Year pillar", natal["year"]["name"]),
-        highlight("Month pillar", natal["month"]["name"]),
-        highlight("Day pillar", natal["day"]["name"]),
-        highlight("Hour pillar", natal["hour"]["name"]),
-        highlight("Dominant element", balance["dominant"]),
-        highlight("Weakest element", balance["weakest"]),
+        highlight("Day Master", f"{day_master['stem_chinese']} {day_master['stem']} ({day_master['stem_element']})"),
+        highlight("Strength", strength["strength_label"]),
+        highlight("Year pillar", f"{natal['year']['chinese_name']} {natal['year']['name']}"),
+        highlight("Month pillar", f"{natal['month']['chinese_name']} {natal['month']['name']}"),
+        highlight("Day pillar", f"{natal['day']['chinese_name']} {natal['day']['name']}"),
+        highlight("Hour pillar", f"{natal['hour']['chinese_name']} {natal['hour']['name']}"),
+        highlight("Dominant element", f"{balance['dominant']} ({balance['percentages'][balance['dominant']]}%)"),
+        highlight("Weakest element", f"{balance['weakest']} ({balance['percentages'][balance['weakest']]}%)"),
         highlight("Favorable elements", ", ".join(strength["favorable"])),
+        highlight("Unfavorable elements", ", ".join(strength.get("unfavorable", []))),
     ]
 
     insights = [
-        insight("Day master logic", f"The day master is {day_master['stem']} {day_master['stem_element']}. All ten-god labels in the tables are measured relative to that stem."),
-        insight("Seasonal weight", f"The month pillar {natal['month']['name']} is weighted strongly because BaZi treats the season as a major factor in day-master strength."),
+        insight("Day Master", f"The Day Master {day_master['stem']} ({day_master['stem_chinese']}) is {day_master['stem_element']} {day_master['stem_polarity']}. All Ten God relationships in your chart are measured from this stem. The Day Master represents your core identity."),
+        insight("Strength analysis", f"Supporting elements score {strength['support_score']} ({strength['support_pct']}%) vs draining elements {strength['drain_score']} ({strength['drain_pct']}%). Season bonus: {strength['season_bonus']}. The Day Master is {'strong' if strength['strong'] else 'weak'}."),
         insight("Element strategy", strength["strategy"]),
-        insight("Current timing", f"The current pillars are {current['year']['name']}, {current['month']['name']}, {current['day']['name']}, and {current['hour']['name']}, which are used to form the score set below."),
+        insight("Na Yin", f"Your Day Pillar Na Yin is \"{natal['day']['na_yin']}\" — this is the sound-element of your birth day in the 60 Jiazi cycle, revealing a deeper layer of your elemental nature."),
+        insight("Current timing", f"Today's pillars are {current['year']['name']}, {current['month']['name']}, {current['day']['name']}, and {current['hour']['name']}. These transit energies interact with your natal chart to produce the current alignment scores."),
     ]
 
     return {
@@ -338,6 +776,18 @@ def calculate(context: dict[str, Any]) -> dict[str, Any]:
         "highlights": highlights,
         "scores": {key: {"value": value, "label": map_score_to_label(value)} for key, value in scores.items()},
         "insights": insights,
+        # ── New enriched data for frontend ──
+        "pillars": pillars_data,
+        "current_pillars": {k: current[k] for k in ["year", "month", "day", "hour"]},
+        "element_balance": balance,
+        "day_master_strength": strength,
+        "day_master_profile": dm_profile,
+        "symbolic_stars": stars,
+        "luck_periods": luck_periods,
+        "current_luck_period": current_luck,
+        "branch_interactions": branch_interactions,
+        "age": age,
+        # ── Legacy tables ──
         "tables": [
             table("Natal Four Pillars", ["Pillar", "Stem", "Branch", "Animal", "Stem element", "Ten God"], natal_rows),
             table("Hidden stems", ["Pillar", "Hidden stems"], hidden_rows),

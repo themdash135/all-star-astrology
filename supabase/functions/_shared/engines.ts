@@ -789,5 +789,17 @@ export function composeOracleResponse(question: string, readingData: Record<stri
   const seed = hashStr(question + new Date().toISOString().slice(0, 10));
   const answer = templates[seed % templates.length];
 
-  return { answer, areas, evidence };
+  return {
+    answer,
+    areas,
+    evidence,
+    confidence: 0.35,
+    confidence_label: "Medium",
+    tone: "guided",
+    personal_insight: null,
+    conflict_note: null,
+    system_agreement: {},
+    top_systems: [],
+    system_signals: [],
+  };
 }

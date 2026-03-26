@@ -5,9 +5,7 @@ import {
   buildShareText,
   extractCosmicDNA,
   getDailyContent,
-  getOracleTone,
   mergeOracleHistory,
-  splitAnswerSentences,
 } from '../app/helpers.js';
 import { readStoredOracleHistory, safeSet } from '../app/storage.js';
 import { apiPost } from '../app/api.js';
@@ -17,6 +15,131 @@ const STARTER_PROMPTS = [
   'What energy is around me today?',
   'What should I focus on this week?',
 ];
+
+// ── Premium staged-reveal result ─────────────────────────────────
+
+function OracleResult({ answer, question, reducedMotion, onReset, onRetry, onShare, shareFeedback }) {
+  const [stage, setStage] = useState(0);
+
+  useEffect(() => {
+    if (reducedMotion) {
+      setStage(5);
+      return;
+    }
+    setStage(1);
+    const timers = [
+      setTimeout(() => setStage(2), 400),
+      setTimeout(() => setStage(3), 900),
+      setTimeout(() => setStage(4), 1500),
+      setTimeout(() => setStage(5), 2100),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, [answer, reducedMotion]);
+
+  const answerParts = (answer.answer || '').split('\n\n').filter(Boolean);
+  const confidence = answer.confidence ?? answer.aggregation?.confidence ?? 0;
+  const confidenceLabel = answer.confidence_label || answer.aggregation?.confidence_label || 'Medium';
+  const tone = answer.tone || 'guided';
+  const signals = answer.system_signals || [];
+  const personalInsight = answer.personal_insight;
+  const conflictNote = answer.conflict_note;
+  const topSystems = answer.top_systems || [];
+  const agreement = answer.system_agreement || {};
+
+  const confClass = confidenceLabel === 'High' ? 'or-conf--high' : confidenceLabel === 'Low' ? 'or-conf--low' : 'or-conf--med';
+  const toneClass = tone === 'firm' ? 'or-tone--firm' : tone === 'exploratory' ? 'or-tone--explore' : '';
+
+  return (
+    <div className="or-result fade-in" role="status" aria-live="polite" aria-atomic="true">
+      {/* Glow backdrop */}
+      <div className="or-glow" aria-hidden="true" />
+
+      {/* Stage 1: Full answer */}
+      <div className={`or-answer ${toneClass} ${stage >= 1 ? 'or-visible' : 'or-hidden'}`}>
+        <p className="oracle-q-echo">"{question}"</p>
+        {answerParts.map((p, i) => (
+          <p key={i} className="or-answer-text serif">{p}</p>
+        ))}
+      </div>
+
+      {/* Stage 2: Confidence badge */}
+      <div className={`or-confidence ${confClass} ${stage >= 2 ? 'or-visible' : 'or-hidden'}`}>
+        <span className="or-conf-dot" />
+        <span className="or-conf-label">{confidenceLabel} Confidence</span>
+        <span className="or-conf-val">{Math.round(confidence * 100)}%</span>
+      </div>
+
+      {/* Stage 3: System reasoning cards */}
+      {signals.length > 0 && (
+        <div className={`or-systems ${stage >= 3 ? 'or-visible' : 'or-hidden'}`}>
+          <h3 className="or-section-title">System Reasoning</h3>
+
+          {/* Agreement summary */}
+          {Object.keys(agreement).length > 0 && (
+            <div className="or-agreement">
+              {Object.entries(agreement).map(([option, count]) => (
+                <span key={option} className="or-agree-chip">
+                  <strong>{count}</strong> {count === 1 ? 'system' : 'systems'} favor <em>{option}</em>
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="or-cards">
+            {signals.map((sig, i) => {
+              const sentClass = sig.sentiment === 'supports' ? 'or-card--supports' : sig.sentiment === 'cautions' ? 'or-card--cautions' : 'or-card--neutral';
+              return (
+                <div
+                  key={sig.system_id || i}
+                  className={`or-card ${sentClass}`}
+                  style={reducedMotion ? {} : { animationDelay: `${1.0 + i * 0.12}s` }}
+                >
+                  <div className="or-card-hd">
+                    <span className="or-card-name">{sig.name}</span>
+                    <span className="or-card-sent">{sig.sentiment}</span>
+                  </div>
+                  <p className="or-card-reason">{sig.reason}</p>
+                  {sig.evidence?.length > 0 && (
+                    <div className="or-card-evidence">
+                      {sig.evidence.slice(0, 2).map((ev, j) => (
+                        <span key={j} className="or-ev-tag">{ev.feature}: {ev.value}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Stage 4: Conflict note (if systems disagree) */}
+      {conflictNote && (
+        <div className={`or-conflict ${stage >= 4 ? 'or-visible' : 'or-hidden'}`}>
+          <span className="or-conflict-icon">~</span>
+          <p className="or-conflict-text">{conflictNote}</p>
+        </div>
+      )}
+
+      {/* Stage 5: Personal insight (last, highlighted) */}
+      {personalInsight && (
+        <div className={`or-insight ${stage >= 5 ? 'or-visible' : 'or-hidden'}`}>
+          <p className="or-insight-text">{personalInsight}</p>
+        </div>
+      )}
+
+
+      {/* Actions */}
+      <div className={`oracle-actions ${stage >= 5 ? 'or-visible' : 'or-hidden'}`}>
+        <button type="button" className="btn-gold" onClick={onReset}>Ask Another</button>
+        <button type="button" className="btn-ghost oracle-secondary" onClick={onRetry}>Retry</button>
+        <button type="button" className="btn-ghost oracle-share" onClick={onShare}>Share</button>
+      </div>
+      {shareFeedback && <p className="oracle-share-note" role="status">{shareFeedback}</p>}
+    </div>
+  );
+}
+
 
 export function OracleScreen({ result, reducedMotion, onOpenSettings }) {
   const [question, setQuestion] = useState('');
@@ -54,21 +177,42 @@ export function OracleScreen({ result, reducedMotion, onOpenSettings }) {
 
     let data;
     try {
-      const payload = await apiPost('ask', { question: trimmed, reading_data: result });
+      const pastQuestions = history.slice(0, 10).map((item) => item.q);
+      const payload = await apiPost('ask', {
+        question: trimmed,
+        reading_data: result,
+        question_history: pastQuestions,
+      });
       data = payload?.answer
         ? payload
         : { answer: 'The stars are veiled tonight. Ask again when the clouds part.', areas: [], evidence: [] };
-    } catch {
+    } catch (err) {
+      console.warn('[Oracle] API error:', err);
       data = { answer: 'The celestial connection falters. Try once more.', areas: [], evidence: [] };
     }
 
     setLoading(false);
     setRevealing(true);
+    window.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' });
     window.setTimeout(() => {
       setAnswer(data);
+      window.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' });
       setHistory((items) => mergeOracleHistory(
         items,
-        { q: trimmed, a: data.answer, areas: data.areas || [], evidence: data.evidence || [] },
+        {
+          q: trimmed,
+          a: data.answer,
+          areas: data.areas || [],
+          evidence: data.evidence || [],
+          system_signals: data.system_signals || [],
+          confidence: data.confidence ?? 0,
+          confidence_label: data.confidence_label || 'Medium',
+          tone: data.tone || 'guided',
+          personal_insight: data.personal_insight || null,
+          conflict_note: data.conflict_note || null,
+          system_agreement: data.system_agreement || {},
+          top_systems: data.top_systems || [],
+        },
         ORACLE_HISTORY_LIMIT,
       ));
       setRevealing(false);
@@ -109,6 +253,14 @@ export function OracleScreen({ result, reducedMotion, onOpenSettings }) {
       answer: item.a,
       areas: item.areas || [],
       evidence: item.evidence || [],
+      system_signals: item.system_signals || [],
+      confidence: item.confidence ?? 0,
+      confidence_label: item.confidence_label || 'Medium',
+      tone: item.tone || 'guided',
+      personal_insight: item.personal_insight || null,
+      conflict_note: item.conflict_note || null,
+      system_agreement: item.system_agreement || {},
+      top_systems: item.top_systems || [],
     });
     setRevealing(false);
     setLoading(false);
@@ -152,7 +304,6 @@ export function OracleScreen({ result, reducedMotion, onOpenSettings }) {
     }
   }
 
-  const sentences = splitAnswerSentences(answer?.answer);
   const historyItems = answer ? history.slice(1) : history;
   const nearLimit = question.length >= 240;
   const daily = getDailyContent(result);
@@ -256,73 +407,15 @@ export function OracleScreen({ result, reducedMotion, onOpenSettings }) {
           )}
 
           {answer && !revealing && (
-            <div className="oracle-answer-area glass fade-in" role="status" aria-live="polite" aria-atomic="true">
-              <p className="oracle-q-echo">"{question}"</p>
-              <div className="oracle-answer-text">
-                {sentences.map((sentence, index) => (
-                  <span key={`${sentence}-${index}`} className="oracle-sentence" style={{ animationDelay: `${index * 0.15}s` }}>
-                    {sentence}{' '}
-                  </span>
-                ))}
-              </div>
-
-              {answer.evidence?.length > 0 && (
-                <div className="oracle-evidence fade-in" style={{ animationDelay: `${sentences.length * 0.15 + 0.3}s` }}>
-                  <h3 className="oracle-ev-title serif">Celestial Evidence</h3>
-                  {answer.evidence.map((item, index) => {
-                    const tone = getOracleTone(item.sentiment);
-                    return (
-                      <div key={`${item.area}-${index}`} className="oracle-ev-card glass">
-                        <div className="oracle-ev-header">
-                          <span className="oracle-ev-area">{item.area}</span>
-                          <span className={`oracle-ev-dot oracle-ev-dot--${tone}`} />
-                          <span className="oracle-ev-label">{item.label || item.sentiment}</span>
-                          {item.score != null && <span className={`oracle-ev-score oracle-ev-score--${tone}`}>{item.score}%</span>}
-                        </div>
-                        {item.voices && <p className="oracle-ev-voices serif">{item.voices}</p>}
-                        {item.leaders?.length > 0 && (
-                          <div className="oracle-ev-systems-group">
-                            <span className="oracle-ev-group-label">Strongest signals</span>
-                            <div className="oracle-ev-chips">
-                              {item.leaders.map((l, i) => (
-                                <span key={i} className="oracle-ev-chip oracle-ev-chip--lead">{l.name} <span className="oracle-ev-chip-score">{l.score}</span></span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {item.dissenting?.length > 0 && (
-                          <div className="oracle-ev-systems-group">
-                            <span className="oracle-ev-group-label">Different perspective</span>
-                            <div className="oracle-ev-chips">
-                              {item.dissenting.map((name, i) => (
-                                <span key={i} className="oracle-ev-chip oracle-ev-chip--dissent">{name}</span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {item.laggards?.length > 0 && (
-                          <div className="oracle-ev-systems-group">
-                            <span className="oracle-ev-group-label">Quieter voices</span>
-                            <div className="oracle-ev-chips">
-                              {item.laggards.map((l, i) => (
-                                <span key={i} className="oracle-ev-chip oracle-ev-chip--lag">{l.name} <span className="oracle-ev-chip-score">{l.score}</span></span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              <div className="oracle-actions">
-                <button type="button" className="btn-gold" onClick={handleReset}>Ask Another</button>
-                <button type="button" className="btn-ghost oracle-secondary" onClick={() => submitQuestion(question)}>Retry</button>
-                <button type="button" className="btn-ghost oracle-share" onClick={handleShare}>Share</button>
-              </div>
-              {shareFeedback && <p className="oracle-share-note" role="status">{shareFeedback}</p>}
-            </div>
+            <OracleResult
+              answer={answer}
+              question={question}
+              reducedMotion={reducedMotion}
+              onReset={handleReset}
+              onRetry={() => submitQuestion(question)}
+              onShare={handleShare}
+              shareFeedback={shareFeedback}
+            />
           )}
         </div>
 
@@ -378,6 +471,26 @@ export function OracleScreen({ result, reducedMotion, onOpenSettings }) {
               ))}
             </div>
           </section>
+        )}
+
+        {/* Recent Questions (collapsible) */}
+        {!answer && !revealing && historyItems.length > 0 && (
+          <div className="v2-oracle-history">
+            <button type="button" className="v2-oracle-hist-toggle" onClick={() => setHistoryOpen(!historyOpen)}>
+              {historyOpen ? '\u25BC' : '\u25B6'} Recent Questions ({historyItems.length})
+            </button>
+            {historyOpen && historyItems.slice(0, 10).map((item, index) => (
+              <div key={index} className="v2-oracle-hist-item" onClick={() => handleOpenHistory(item)}>
+                <div className="v2-oracle-hist-q">{item.q}</div>
+                <div className="v2-oracle-hist-a">{item.a}</div>
+              </div>
+            ))}
+            {historyOpen && historyItems.length > 0 && (
+              <button type="button" className="btn-ghost" style={{ marginTop: 8, fontSize: '.78rem' }} onClick={handleClearHistory}>
+                Clear History
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>

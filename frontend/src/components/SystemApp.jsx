@@ -184,22 +184,36 @@ function SystemFlavor({ data, systemId, color }) {
       );
     }
     case 'bazi': {
-      const dayMaster = hl(data, 'day master', 'day stem', 'day element');
-      const dayBranch = hl(data, 'day branch');
-      if (!dayMaster) return null;
-      return (
-        <div className="sa-flavor sa-flavor-bazi">
-          <div className="sa-flavor-daymaster" style={{ '--pill-color': color }}>
-            <span className="sa-flavor-dm-char serif">{'\u67F1'}</span>
-            <div className="sa-flavor-dm-info">
-              <span className="sa-flavor-dm-label">Day Master</span>
-              <span className="sa-flavor-dm-value serif">{dayMaster}</span>
+      const p = data?.pillars?.day;
+      const str = data?.day_master_strength;
+      if (!p) {
+        const dayMaster = hl(data, 'day master', 'day stem', 'day element');
+        if (!dayMaster) return null;
+        return (
+          <div className="sa-flavor sa-flavor-bazi">
+            <div className="sa-flavor-daymaster" style={{ '--pill-color': color }}>
+              <span className="sa-flavor-dm-char serif">{'\u67F1'}</span>
+              <div className="sa-flavor-dm-info">
+                <span className="sa-flavor-dm-label">Day Master</span>
+                <span className="sa-flavor-dm-value serif">{dayMaster}</span>
+              </div>
             </div>
           </div>
-          {dayBranch && (
-            <div className="sa-flavor-pill" style={{ '--pill-color': color }}>
-              <span className="sa-flavor-lbl">Day Branch</span>
-              <span className="sa-flavor-val">{dayBranch}</span>
+        );
+      }
+      return (
+        <div className="sa-flavor sa-flavor-bazi">
+          <div className="sa-flavor-daymaster" style={{ '--pill-color': p.stem_color || color }}>
+            <span className="sa-flavor-dm-char serif" style={{ color: p.stem_color }}>{p.stem_chinese}</span>
+            <div className="sa-flavor-dm-info">
+              <span className="sa-flavor-dm-label">Day Master</span>
+              <span className="sa-flavor-dm-value serif">{p.stem} {p.stem_element}</span>
+            </div>
+          </div>
+          {str && (
+            <div className="sa-flavor-pill" style={{ '--pill-color': str.strong ? '#4caf50' : '#ff9800' }}>
+              <span className="sa-flavor-lbl">Strength</span>
+              <span className="sa-flavor-val">{str.strength_label}</span>
             </div>
           )}
         </div>
@@ -422,34 +436,308 @@ function VedicChart({ data, color }) {
   );
 }
 
-/* BaZi Four Pillars visual */
+/* BaZi Rich Four Pillars + Element Balance + Stars + Luck Periods */
 function BaZiChart({ data, color }) {
-  const table = findTable(data, 'pillar', 'four pillar');
-  const rows = table?.rows || [];
-  const columns = table?.columns || ['Pillar', 'Stem', 'Branch'];
-  const pillarLabels = ['Year', 'Month', 'Day', 'Hour'];
+  const [baziTab, setBaziTab] = useState('pillars');
+  const pillars = data?.pillars;
+  const currentPillars = data?.current_pillars;
+  const balance = data?.element_balance;
+  const strength = data?.day_master_strength;
+  const profile = data?.day_master_profile;
+  const stars = data?.symbolic_stars || [];
+  const luckPeriods = data?.luck_periods || [];
+  const currentLuck = data?.current_luck_period;
+  const interactions = data?.branch_interactions || [];
+  const age = data?.age || 0;
 
-  // If we have data, render pillars; otherwise use highlights
-  const pillars = rows.length > 0
-    ? rows.map((r, i) => ({ label: r[0] || pillarLabels[i] || `Pillar ${i + 1}`, stem: r[1] || '—', branch: r[2] || '—' }))
-    : pillarLabels.map((l) => {
-        const stem = hl(data, l.toLowerCase() + ' stem', l.toLowerCase() + ' pillar');
-        const branch = hl(data, l.toLowerCase() + ' branch');
-        return { label: l, stem: stem || '—', branch: branch || '—' };
-      });
+  // Fallback to table data if enriched data not present
+  if (!pillars) {
+    const tbl = findTable(data, 'pillar', 'four pillar');
+    const rows = tbl?.rows || [];
+    const pillarLabels = ['Year', 'Month', 'Day', 'Hour'];
+    const fallback = rows.length > 0
+      ? rows.map((r, i) => ({ label: r[0] || pillarLabels[i], stem: r[1] || '—', branch: r[2] || '—' }))
+      : pillarLabels.map((l) => ({ label: l, stem: '—', branch: '—' }));
+    return (
+      <div className="sa-chart-wrap">
+        <div className="sa-bazi-pillars">
+          {fallback.map((p, i) => (
+            <div key={i} className="sa-bazi-pillar stagger" style={{ animationDelay: `${i * 0.12}s`, '--sys-color': color }}>
+              <div className="sa-bazi-pillar-label">{p.label}</div>
+              <div className="sa-bazi-pillar-stem serif">{p.stem}</div>
+              <div className="sa-bazi-pillar-divider" style={{ background: color }} />
+              <div className="sa-bazi-pillar-branch serif">{p.branch}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const TABS = [
+    { id: 'pillars', label: 'Pillars' },
+    { id: 'elements', label: 'Elements' },
+    { id: 'profile', label: 'Day Master' },
+    { id: 'stars', label: 'Stars' },
+    { id: 'luck', label: 'Luck Periods' },
+  ];
 
   return (
-    <div className="sa-chart-wrap">
-      <div className="sa-bazi-pillars">
-        {pillars.map((p, i) => (
-          <div key={i} className="sa-bazi-pillar stagger" style={{ animationDelay: `${i * 0.12}s`, '--sys-color': color }}>
-            <div className="sa-bazi-pillar-label">{p.label}</div>
-            <div className="sa-bazi-pillar-stem serif">{p.stem}</div>
-            <div className="sa-bazi-pillar-divider" style={{ background: color }} />
-            <div className="sa-bazi-pillar-branch serif">{p.branch}</div>
-          </div>
+    <div className="bz-rich">
+      {/* Sub-tabs */}
+      <div className="bz-tabs">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            className={`bz-tab${baziTab === t.id ? ' bz-tab--active' : ''}`}
+            style={{ '--bz-accent': color }}
+            onClick={() => setBaziTab(t.id)}
+          >{t.label}</button>
         ))}
       </div>
+
+      {/* ── PILLARS TAB ── */}
+      {baziTab === 'pillars' && (
+        <div className="bz-section fade-in">
+          {/* Natal Pillars */}
+          <div className="bz-pillar-label-row">
+            <span className="bz-section-badge">Natal Chart</span>
+          </div>
+          <div className="bz-pillars-grid">
+            {['hour', 'day', 'month', 'year'].map((key, i) => {
+              const p = pillars[key];
+              const isDay = key === 'day';
+              return (
+                <div key={key} className={`bz-pillar-card stagger${isDay ? ' bz-pillar-card--dm' : ''}`} style={{ animationDelay: `${i * 0.1}s`, '--stem-color': p.stem_color, '--branch-color': p.branch_color }}>
+                  <div className="bz-pillar-header">{key.charAt(0).toUpperCase() + key.slice(1)}</div>
+                  <div className="bz-pillar-tg">{p.ten_god_chinese} {p.ten_god}</div>
+                  <div className="bz-pillar-stem-box" style={{ borderColor: p.stem_color }}>
+                    <span className="bz-pillar-chinese serif">{p.stem_chinese}</span>
+                    <span className="bz-pillar-pinyin">{p.stem}</span>
+                    <span className="bz-pillar-element-badge" style={{ background: p.stem_color }}>{p.stem_element} {p.stem_polarity}</span>
+                  </div>
+                  <div className="bz-pillar-branch-box" style={{ borderColor: p.branch_color }}>
+                    <span className="bz-pillar-chinese serif">{p.branch_chinese}</span>
+                    <span className="bz-pillar-pinyin">{p.branch} · {p.animal}</span>
+                    <span className="bz-pillar-element-badge" style={{ background: p.branch_color }}>{p.branch_element}</span>
+                  </div>
+                  {/* Hidden stems */}
+                  <div className="bz-hidden-stems">
+                    {p.hidden_stems.map((h, hi) => (
+                      <div key={hi} className="bz-hidden-stem" title={`${h.stem} — ${h.ten_god}`}>
+                        <span className="bz-hs-chinese">{h.chinese}</span>
+                        <span className="bz-hs-name">{h.stem}</span>
+                        <span className="bz-hs-tg">{h.ten_god}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="bz-pillar-nayin">{p.na_yin}</div>
+                  {isDay && <div className="bz-dm-badge" style={{ background: color }}>Day Master</div>}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Branch interactions */}
+          {interactions.length > 0 && (
+            <div className="bz-interactions">
+              <h4 className="bz-sub-title">Branch Interactions</h4>
+              <div className="bz-interaction-list">
+                {interactions.map((ix, i) => (
+                  <div key={i} className={`bz-interaction-pill${ix.positive ? ' bz-ix-pos' : ' bz-ix-neg'}`}>
+                    <span className="bz-ix-type">{ix.chinese} {ix.label}</span>
+                    <span className="bz-ix-detail">{ix.pillars} ({ix.branches})</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Current transit pillars */}
+          {currentPillars && (
+            <div className="bz-current-section">
+              <div className="bz-pillar-label-row">
+                <span className="bz-section-badge bz-section-badge--transit">Current Transit</span>
+              </div>
+              <div className="bz-pillars-grid bz-pillars-grid--sm">
+                {['hour', 'day', 'month', 'year'].map((key, i) => {
+                  const p = currentPillars[key];
+                  return (
+                    <div key={key} className="bz-transit-card stagger" style={{ animationDelay: `${i * 0.08}s`, '--stem-color': p.stem_color, '--branch-color': p.branch_color }}>
+                      <div className="bz-transit-header">{key.charAt(0).toUpperCase() + key.slice(1)}</div>
+                      <div className="bz-transit-chinese serif">{p.stem_chinese}{p.branch_chinese}</div>
+                      <div className="bz-transit-info">{p.stem} {p.branch}</div>
+                      <div className="bz-transit-tg">{p.ten_god}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── ELEMENTS TAB ── */}
+      {baziTab === 'elements' && balance && (
+        <div className="bz-section fade-in">
+          {/* Element balance bars */}
+          <h4 className="bz-sub-title">Element Distribution</h4>
+          <div className="bz-element-bars">
+            {Object.entries(balance.percentages).map(([el, pct], i) => (
+              <div key={el} className="bz-el-row stagger" style={{ animationDelay: `${i * 0.08}s` }}>
+                <span className="bz-el-name">{el}</span>
+                <div className="bz-el-track">
+                  <div className="bz-el-fill bar-anim" style={{ width: `${pct}%`, background: balance.colors[el], animationDelay: `${i * 0.1 + 0.2}s` }} />
+                </div>
+                <span className="bz-el-pct" style={{ color: balance.colors[el] }}>{pct}%</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Supporting vs Opposing */}
+          {strength && (
+            <div className="bz-strength-section">
+              <h4 className="bz-sub-title">Day Master Strength</h4>
+              <div className="bz-strength-bar-wrap">
+                <div className="bz-strength-bar">
+                  <div className="bz-str-fill bz-str-support" style={{ width: `${strength.support_pct}%` }}>
+                    <span>{strength.support_pct}%</span>
+                  </div>
+                  <div className="bz-str-fill bz-str-drain" style={{ width: `${strength.drain_pct}%` }}>
+                    <span>{strength.drain_pct}%</span>
+                  </div>
+                </div>
+                <div className="bz-str-labels">
+                  <span className="bz-str-label-l">Supporting</span>
+                  <span className={`bz-str-verdict${strength.strong ? ' bz-str-strong' : ' bz-str-weak'}`}>{strength.strength_label}</span>
+                  <span className="bz-str-label-r">Opposing</span>
+                </div>
+              </div>
+
+              {/* Favorable / Unfavorable elements */}
+              <div className="bz-fav-grid">
+                <div className="bz-fav-col">
+                  <span className="bz-fav-title">Favorable</span>
+                  <div className="bz-fav-pills">
+                    {strength.favorable.map((el, i) => (
+                      <span key={i} className="bz-fav-pill" style={{ background: strength.favorable_colors[i] }}>{el}</span>
+                    ))}
+                  </div>
+                </div>
+                <div className="bz-fav-col">
+                  <span className="bz-fav-title bz-fav-title--neg">Unfavorable</span>
+                  <div className="bz-fav-pills">
+                    {(strength.unfavorable || []).map((el, i) => (
+                      <span key={i} className="bz-fav-pill bz-fav-pill--neg" style={{ borderColor: strength.unfavorable_colors?.[i] || '#666' }}>{el}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <p className="bz-strategy">{strength.strategy}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── DAY MASTER PROFILE TAB ── */}
+      {baziTab === 'profile' && profile && (
+        <div className="bz-section fade-in">
+          <div className="bz-profile-hero" style={{ '--dm-color': strength?.day_master_color || color }}>
+            <span className="bz-profile-chinese serif">{profile.chinese}</span>
+            <h3 className="bz-profile-title serif">{profile.title}</h3>
+            <span className="bz-profile-nature">{profile.nature}</span>
+          </div>
+
+          <div className="bz-profile-body">
+            <p className="bz-profile-text">{profile.personality}</p>
+
+            <div className="bz-profile-cols">
+              <div className="bz-profile-list-card bz-profile-list-card--pos">
+                <h5>Strengths</h5>
+                <ul>{profile.strengths.map((s, i) => <li key={i}>{s}</li>)}</ul>
+              </div>
+              <div className="bz-profile-list-card bz-profile-list-card--neg">
+                <h5>Challenges</h5>
+                <ul>{profile.challenges.map((c, i) => <li key={i}>{c}</li>)}</ul>
+              </div>
+            </div>
+
+            <div className="bz-profile-detail-card">
+              <h5>Career Paths</h5>
+              <p>{profile.career}</p>
+            </div>
+            <div className="bz-profile-detail-card">
+              <h5>Relationships</h5>
+              <p>{profile.relationships}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── STARS TAB ── */}
+      {baziTab === 'stars' && (
+        <div className="bz-section fade-in">
+          <h4 className="bz-sub-title">Symbolic Stars</h4>
+          {stars.length === 0 && <p className="bz-empty">No major symbolic stars found in your natal chart.</p>}
+          <div className="bz-stars-list">
+            {stars.map((star, i) => (
+              <div key={i} className={`bz-star-card glass stagger${star.positive ? ' bz-star--pos' : ' bz-star--neg'}`} style={{ animationDelay: `${i * 0.1}s` }}>
+                <div className="bz-star-header">
+                  <span className="bz-star-chinese serif">{star.chinese}</span>
+                  <span className="bz-star-name">{star.name}</span>
+                  <span className={`bz-star-badge${star.positive ? '' : ' bz-star-badge--neg'}`}>{star.positive ? 'Auspicious' : 'Challenging'}</span>
+                </div>
+                <p className="bz-star-desc">{star.description}</p>
+                <span className="bz-star-found">Found in: {star.found_in}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── LUCK PERIODS TAB ── */}
+      {baziTab === 'luck' && (
+        <div className="bz-section fade-in">
+          <h4 className="bz-sub-title">10-Year Luck Periods (大运 Da Yun)</h4>
+          {currentLuck && (
+            <div className="bz-current-luck glass" style={{ '--bz-accent': color }}>
+              <span className="bz-cl-badge">Current Period (Age {age})</span>
+              <div className="bz-cl-main">
+                <span className="bz-cl-chinese serif">{currentLuck.chinese_name}</span>
+                <span className="bz-cl-name">{currentLuck.pillar_name}</span>
+                <span className="bz-cl-ages">{currentLuck.age_range} · {currentLuck.year_range}</span>
+              </div>
+              <div className="bz-cl-details">
+                <span className="bz-cl-tg">{currentLuck.ten_god_chinese} {currentLuck.ten_god}</span>
+                <span className="bz-cl-nayin">{currentLuck.na_yin}</span>
+              </div>
+            </div>
+          )}
+          <div className="bz-luck-timeline">
+            {luckPeriods.map((lp, i) => {
+              const isCurrent = currentLuck && lp.index === currentLuck.index;
+              return (
+                <div key={i} className={`bz-luck-card stagger${isCurrent ? ' bz-luck-card--current' : ''}`} style={{ animationDelay: `${i * 0.07}s`, '--stem-color': lp.stem_color, '--branch-color': lp.branch_color }}>
+                  <div className="bz-luck-ages">{lp.age_range}</div>
+                  <div className="bz-luck-years">{lp.year_range}</div>
+                  <div className="bz-luck-pillar">
+                    <span className="bz-luck-chinese serif">{lp.chinese_name}</span>
+                    <span className="bz-luck-pinyin">{lp.pillar_name}</span>
+                  </div>
+                  <div className="bz-luck-elements">
+                    <span className="bz-luck-el" style={{ background: lp.stem_color }}>{lp.stem_element}</span>
+                    <span className="bz-luck-el" style={{ background: lp.branch_color }}>{lp.branch_element}</span>
+                  </div>
+                  <div className="bz-luck-tg">{lp.ten_god_chinese} {lp.ten_god}</div>
+                  <div className="bz-luck-nayin">{lp.na_yin}</div>
+                  {isCurrent && <div className="bz-luck-now-badge">NOW</div>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

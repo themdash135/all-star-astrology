@@ -1,291 +1,399 @@
+You are upgrading an astrology mobile app into a NEURO-SYMBOLIC AI ENGINE.
+
+STRICT REQUIREMENTS:
+- The AI MUST NOT generate generic astrology responses
+- ALL answers must be derived from structured system outputs
+- The LLM is ONLY allowed to translate computed results into natural language
+
+--------------------------------
+CORE ARCHITECTURE
+--------------------------------
+
+Build the following pipeline:
+
+1. IntentClassifier
+2. SystemRouter
+3. SystemAdapters (one per astrology system)
+4. Aggregator
+5. AnswerComposer
+
+--------------------------------
+DATA CONTRACT (MANDATORY)
+--------------------------------
+
+Every astrology system MUST return this exact JSON:
+
+{
+  "system_id": "string",
+  "relevant": true,
+  "stance": {
+    "option_a": number,
+    "option_b": number
+  },
+  "confidence": number,
+  "reason": "short explanation",
+  "evidence": [
+    {
+      "feature": "string",
+      "value": "string",
+      "weight": number
+    }
+  ]
+}
+
+--------------------------------
+STEP 1: INTENT CLASSIFIER
+--------------------------------
+
+Convert user question into structured format:
+
+Example input:
+"Should I go to sleep early or late tonight?"
+
+Output:
+
+{
+  "question_type": "binary_decision",
+  "domain_tags": ["sleep", "health", "timing"],
+  "options": ["sleep_early", "sleep_late"],
+  "time_horizon": "tonight"
+}
+
+--------------------------------
+STEP 2: SYSTEM ROUTER
+--------------------------------
+
+Select ONLY relevant systems (max 4):
+
+Rules:
+- timing → Vedic, Persian
+- personality → Western
+- structure/life path → BaZi
+- numeric cycles → Numerology
+- spiritual meaning → Kabbalistic
+- symbolic language → Gematria
+
+--------------------------------
+STEP 3: SYSTEM ADAPTERS
+--------------------------------
 
-You need to CORRECT the Readings section implementation.
+Implement adapters for:
 
-The previous version is wrong because it treated the Readings tiles like astrology scoring / daily percentage / calendar interpretation screens.
+- Western
+- Vedic
+- Chinese
+- BaZi
+- Numerology
+- Kabbalistic
+- Gematria
+- Persian
 
-That is NOT what I want.
+Each adapter must:
+- analyze input
+- compute stance scores
+- return structured JSON (NO TEXT OUTPUT)
 
-==================================================
-CORE CORRECTION
-==================================================
+--------------------------------
+STEP 4: AGGREGATOR
+--------------------------------
 
-The 6 tiles on the Readings page are CATEGORY LAUNCHERS for actual fortune-telling tools.
+Combine system outputs:
 
-They must NOT open:
-- score dashboards
-- daily percentage summaries
-- calendar-style “how the day looks” screens
-- generalized astrology system scoring views
+- normalize scores
+- weight by confidence
+- compute final decision
 
-They MUST open TOOL HUB PAGES.
+Output:
 
-==================================================
-READINGS HOME SCREEN
-==================================================
+{
+  "winner": "option_a",
+  "scores": {
+    "option_a": number,
+    "option_b": number
+  },
+  "contributors": ["vedic", "western"]
+}
 
-Build a Readings home screen with a 2-column grid of 6 large launcher cards:
+--------------------------------
+STEP 5: ANSWER COMPOSER
+--------------------------------
 
-1. Horoscope
-2. Kundli
-3. Match Making
-4. Tarot Reading
-5. Panchang
-6. Numerology
+CRITICAL RULES:
+- MUST USE aggregator output
+- MUST reference at least one system
+- MUST explain reasoning
+- MUST NOT hallucinate or generalize
 
-These are navigation cards only.
+FORMAT:
 
-They should visually resemble the reference screenshots:
-- large rounded cards
-- centered icon/illustration
-- title below icon
-- clean premium mystical feel
-- subtle entrance / tap animation
-- no result text on the card
-- no percentages
-- no daily scoring
+Short answer first:
+"Sleep early tonight."
 
-==================================================
-WHAT EACH TILE MUST OPEN
-==================================================
+Then reasoning:
+"Vedic timing and BaZi balance both favor restoration over stimulation..."
 
-1. HOROSCOPE TILE → Horoscope Hub page
+--------------------------------
+UI REQUIREMENTS
+--------------------------------
 
-This must open a Horoscope tools page, not a result page.
+Update result screen to show:
 
-Show tappable fortune-telling tools like:
-- Daily Horoscope
-- Zodiac Sign
-- Love Compatibility
-- Chinese Horoscope
-- Horoscope 2026
-- Weekly Horoscope
-- Monthly Horoscope
-- Yearly Horoscope
+1. FINAL ANSWER (large text)
+2. WHY (1–2 sentences)
+3. CONTRIBUTING SYSTEMS (chips)
+4. SYSTEM BREAKDOWN (expandable cards)
+5. CONFIDENCE SCORE
 
-Use the screenshot pattern:
-- top header
-- horizontal category/tabs if useful
-- vertical tappable list rows/cards
-- each item has icon, title, arrow/CTA
+--------------------------------
+FAIL CONDITIONS (DO NOT ALLOW)
+--------------------------------
 
-Tapping a tool item should open its dedicated detail/result flow.
+- Generic advice like "trust yourself"
+- Answers without system attribution
+- No structured reasoning
+- LLM answering without system data
 
---------------------------------------------------
+--------------------------------
+GOAL
+--------------------------------
 
-2. TAROT READING TILE → Tarot Hub page
+Transform this app from:
+❌ Generic astrology responses
 
-This must open a Tarot tools page.
+Into:
+✅ Multi-system reasoning engine with traceable logic
 
-Show tappable tarot tools:
-- One Card Reading
-- Three Card Reading
-- Love Tarot Reading
-- Wellness Tarot Reading
-- State of Mind Tarot Reading
-- Monthly Tarot Reading
+Start by:
+1. Defining shared interfaces
+2. Implementing 4 systems first (Western, Vedic, BaZi, Numerology)
+3. Then expand to all 8
 
-This page is a launcher/menu page, not the final reading output page.
+Return code structure + implementation plan.
 
-Use the screenshot pattern:
-- header
-- category strip if needed
-- vertical list of tappable tools
-- each tool opens deeper screen
 
---------------------------------------------------
 
-3. KUNDLI TILE → Kundli Hub page
 
-This must open a profile-based Kundli tools page.
 
-Main launcher/content states:
-- Add Kundli Profile
-- Saved Profiles
-- Generate Kundli
-- Birth Chart
-- Planet Positions
-- House Analysis
-- Dosha / Yog tools
-
-If no profile exists:
-show a prominent primary CTA:
-- Add Kundli Profile
-
-This should resemble the screenshot where the main action is adding a Kundli profile.
-
---------------------------------------------------
-
-4. MATCH MAKING TILE → Match Making Hub page
-
-This must open a profile-pair tools page.
-
-Main state:
-- Kundli Profile 1
-- Kundli Profile 2
-- Add Profile buttons
-- Start Match Analysis button when both exist
-
-Additional tool entries can include:
-- Basic Compatibility
-- Guna Match
-- Love Match
-- Marriage Match
-- Strengths & Challenges
-
-Use the screenshot structure:
-- M & F / pair visualization
-- profile slots
-- add profile buttons
-- match flow launcher
-
---------------------------------------------------
-
-5. PANCHANG TILE → Panchang Hub page
-
-This must open a Panchang tools page with sub-tools.
-
-Important:
-Do NOT convert Panchang into a percentage/scoring screen.
-
-Panchang should include tool navigation such as:
-- Today’s Panchang
-- Choghadiya
-- Subh Hora
-- Nakshatra
-- Tithi
-- Yog
-- Karan
-- Hindu Month & Year
-
-Default can open Today’s Panchang content, but visible navigation/sub-tools must remain available.
-
-Follow the screenshot pattern:
-- header
-- short intro text
-- chip/tab-like sub-tools
-- detailed content cards below
-
---------------------------------------------------
-
-6. NUMEROLOGY TILE → Numerology Hub page
-
-This must open a Numerology tools page.
-
-Include launcher cards/tabs for:
-- Life Path
-- Birth Path
-- Ruling Number
-- Name Numerology
-- Daily
-- Weekly
-- Yearly
-- Lucky Colors
-- Lucky Days
-- Lucky Numbers
-- Lucky Gemstone
-
-This should resemble the reference screenshots:
-- top hero/profile summary
-- date of birth area
-- small horizontal cards for key numerology tools
-- daily/weekly/yearly switching area
-- supportive info cards below
-
-This is a personalized numerology hub, not a scoring dashboard.
-
-==================================================
-STRUCTURE RULE
-==================================================
-
-The correct hierarchy is:
-
-LEVEL 1:
-Readings Home
-→ 6 category launcher tiles
-
-LEVEL 2:
-Category Hub
-→ actual fortune-telling tools for that category
-
-LEVEL 3:
-Specific Tool Screen
-→ input / result / detail / profile / report
-
-Do NOT skip directly from Level 1 into unrelated interpretation dashboards.
-
-==================================================
-IMPORTANT DO NOT DO
-==================================================
-
-Do NOT:
-- show astrology “percentage of your day”
-- show score-based day views
-- show calendar scoring UIs
-- show system-wide daily interpretation summaries on the 6 launcher tiles
-- merge this with the separate multi-astrology-system calendar architecture
-- replace tool hubs with generic overview pages
-
-==================================================
-BUILD REQUIREMENTS
-==================================================
-
-Use reusable architecture.
-
-Create reusable components such as:
-- ReadingsHomeScreen
-- ReadingCategoryCard
-- ReadingHubScreen
-- ToolLauncherList
-- ToolLauncherRow
-- ToolLauncherCard
-- ProfileRequiredState
-- EmptyProfileCTA
-- SubToolTabs
-- DetailContentCard
-
-Use external config/data instead of hardcoding screens individually.
-
-Suggested config shape:
-- readings_categories
-- horoscope_tools
-- tarot_tools
-- kundli_tools
-- matchmaking_tools
-- panchang_tools
-- numerology_tools
-
-==================================================
-VISUAL / ANIMATION
-==================================================
-
-Use subtle premium animation only:
-- screen fade/slide in
-- stagger reveal of launcher cards
-- light tap scale on tiles
-- soft glow or shimmer on important CTA buttons
-- lightweight, mobile-safe motion
-- no heavy particle overload
-
-==================================================
-SUCCESS CRITERIA
-==================================================
-
-Success means:
-- tapping Horoscope opens Horoscope tools hub
-- tapping Tarot Reading opens Tarot tools hub
-- tapping Kundli opens Kundli tools hub
-- tapping Match Making opens Match Making tools hub
-- tapping Panchang opens Panchang sub-tools/content hub
-- tapping Numerology opens Numerology personalized tools hub
-
-The user should feel like they opened a marketplace/menu of actual fortune-telling tools, not a day-scoring screen.
-
-==================================================
-IMPLEMENT NOW
-==================================================
-
-Please rebuild/correct only the Readings section around this interpretation.
-Do not rebuild the whole app.
-Reuse as much existing styling and shared component structure as possible.
-```
 
+
+
+
+
+Use the following as the primary implementation direction.
+
+FIRST PRIORITY:
+Design the real backend structure first.
+Do not start by hardcoding scoring formulas across all systems.
+Lock the architecture first so scoring formulas can plug into a stable engine.
+
+Reason:
+- 8 systems will become messy without a shared backend contract
+- scoring formulas should be modular, not scattered
+- the system needs a stable orchestration layer before deeper astrology logic is added
+
+Build the backend skeleton first:
+- question classifier
+- system router
+- shared SystemOpinion schema
+- system adapter interface
+- aggregator
+- answer composer
+- traceable evidence output
+- API/service boundaries
+
+Preferred architecture:
+- iOS app remains frontend
+- backend orchestrator in Node/TypeScript
+- symbolic/calculation engines in Python
+
+Node/TypeScript handles:
+- API routes
+- orchestration
+- request validation
+- user/session flow
+- routing to systems
+- aggregation
+- final response assembly
+
+Python handles:
+- astrology calculations
+- symbolic rules
+- scoring logic
+- system-level evaluators
+
+Only after backend structure is defined should you implement real scoring formulas system by system.
+
+Now use this implementation brief:
+
+You are upgrading an astrology mobile app into a NEURO-SYMBOLIC AI ENGINE.
+
+STRICT REQUIREMENTS:
+- The AI MUST NOT generate generic astrology responses
+- ALL answers must be derived from structured system outputs
+- The LLM is ONLY allowed to translate computed results into natural language
+
+--------------------------------
+CORE ARCHITECTURE
+--------------------------------
+
+Build the following pipeline:
+
+1. IntentClassifier
+2. SystemRouter
+3. SystemAdapters (one per astrology system)
+4. Aggregator
+5. AnswerComposer
+
+--------------------------------
+DATA CONTRACT (MANDATORY)
+--------------------------------
+
+Every astrology system MUST return this exact JSON:
+
+{
+  "system_id": "string",
+  "relevant": true,
+  "stance": {
+    "option_a": number,
+    "option_b": number
+  },
+  "confidence": number,
+  "reason": "short explanation",
+  "evidence": [
+    {
+      "feature": "string",
+      "value": "string",
+      "weight": number
+    }
+  ]
+}
+
+--------------------------------
+STEP 1: INTENT CLASSIFIER
+--------------------------------
+
+Convert user question into structured format.
+
+Example input:
+"Should I go to sleep early or late tonight?"
+
+Output:
+
+{
+  "question_type": "binary_decision",
+  "domain_tags": ["sleep", "health", "timing"],
+  "options": ["sleep_early", "sleep_late"],
+  "time_horizon": "tonight"
+}
+
+--------------------------------
+STEP 2: SYSTEM ROUTER
+--------------------------------
+
+Select ONLY relevant systems (max 4).
+
+Rules:
+- timing → Vedic, Persian
+- personality → Western
+- structure/life path → BaZi
+- numeric cycles → Numerology
+- spiritual meaning → Kabbalistic
+- symbolic language → Gematria
+
+--------------------------------
+STEP 3: SYSTEM ADAPTERS
+--------------------------------
+
+Implement adapters for:
+- Western
+- Vedic
+- Chinese
+- BaZi
+- Numerology
+- Kabbalistic
+- Gematria
+- Persian
+
+Each adapter must:
+- analyze input
+- compute stance scores
+- return structured JSON
+- not directly generate final user-facing prose
+
+--------------------------------
+STEP 4: AGGREGATOR
+--------------------------------
+
+Combine system outputs:
+- normalize scores
+- weight by confidence
+- compute final decision
+
+Output:
+
+{
+  "winner": "option_a",
+  "scores": {
+    "option_a": number,
+    "option_b": number
+  },
+  "contributors": ["vedic", "western"]
+}
+
+--------------------------------
+STEP 5: ANSWER COMPOSER
+--------------------------------
+
+CRITICAL RULES:
+- MUST USE aggregator output
+- MUST reference at least one system
+- MUST explain reasoning
+- MUST NOT hallucinate or generalize
+
+FORMAT:
+Short answer first:
+"Sleep early tonight."
+
+Then reasoning:
+"Vedic timing and BaZi balance both favor restoration over stimulation..."
+
+--------------------------------
+UI REQUIREMENTS
+--------------------------------
+
+Update result screen to show:
+1. FINAL ANSWER
+2. WHY
+3. CONTRIBUTING SYSTEMS
+4. SYSTEM BREAKDOWN
+5. CONFIDENCE SCORE
+
+--------------------------------
+FAIL CONDITIONS
+--------------------------------
+
+Do NOT allow:
+- generic advice like "trust yourself"
+- answers without system attribution
+- no structured reasoning
+- LLM answering without system data
+
+--------------------------------
+GOAL
+--------------------------------
+
+Transform this app from generic astrology responses into a multi-system reasoning engine with traceable logic.
+
+IMPLEMENTATION ORDER:
+1. Define shared interfaces and backend architecture
+2. Implement 4 systems first: Western, Vedic, BaZi, Numerology
+3. Add placeholder stubs for the remaining 4 systems
+4. Then expand scoring formulas system by system
+
+Return:
+- backend architecture
+- folder structure
+- service boundaries
+- API contract
+- implementation plan
+- then begin code changes

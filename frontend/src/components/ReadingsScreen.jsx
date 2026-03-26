@@ -6,6 +6,7 @@ import { getKundliBirthDetails, getKundliChart, getKundliPlanets, getKundliFavor
 import { getFullCompatibility } from '../app/matchmaking-engine.js';
 import { signFromDate } from '../app/games-engine.js';
 import { safeGet, safeSet } from '../app/storage.js';
+import { apiPost } from '../app/api.js';
 import { IconBack } from './common.jsx';
 
 const QUIZ_RESULTS_KEY = 'allstar-quiz-results';
@@ -670,6 +671,490 @@ const SIGN_ICONS_MM = {
   Libra:'\u264E',Scorpio:'\u264F',Sagittarius:'\u2650',Capricorn:'\u2651',Aquarius:'\u2652',Pisces:'\u2653',
 };
 
+/* ── Full Combined Analysis (Neuro-Symbolic) ── */
+function FullAnalysisView({ form, partnerName, result, onBack }) {
+  useScrollTop();
+  const [revealStage, setRevealStage] = useState(0);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [nsData, setNsData] = useState(null);
+  const [nsLoading, setNsLoading] = useState(true);
+  const reportRef = useRef(null);
+
+  const { overall, systems, userSign, partnerSign } = result;
+  const userName = form?.full_name || 'You';
+  const pName = partnerName || 'Your Partner';
+  const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  // Fetch neuro-symbolic analysis from backend
+  useEffect(() => {
+    let cancelled = false;
+    const partnerRaw = safeGet(PARTNER_KEY);
+    const partner = partnerRaw ? (() => { try { return JSON.parse(partnerRaw); } catch { return null; } })() : null;
+    if (!partner?.birth_date || !form?.birth_date) { setNsLoading(false); return; }
+
+    apiPost('compatibility', {
+      user: {
+        birth_date: form.birth_date,
+        birth_time: form.birth_time || '12:00',
+        birth_location: form.birth_location || 'New York, NY',
+        full_name: form.full_name || '',
+        hebrew_name: form.hebrew_name || '',
+      },
+      partner: {
+        birth_date: partner.birth_date,
+        birth_time: partner.birth_time || '12:00',
+        birth_location: partner.birth_location || 'New York, NY',
+        full_name: partner.full_name || '',
+        hebrew_name: '',
+      },
+    }).then((data) => {
+      if (!cancelled) setNsData(data);
+    }).catch((err) => {
+      console.warn('[Compatibility] Backend unavailable:', err.message);
+    }).finally(() => {
+      if (!cancelled) setNsLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Staged reveal animation
+  useEffect(() => {
+    const timers = [];
+    for (let i = 1; i <= 14; i++) {
+      timers.push(setTimeout(() => setRevealStage(i), i * 350));
+    }
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  // Use backend score when available, frontend as fallback
+  const finalScore = nsData?.overall_score ?? overall.score;
+  const finalVerdict = nsData?.verdict ?? overall.verdict;
+  const finalVerdictText = nsData?.verdict_prose ?? overall.summary;
+  const nsSystems = nsData?.systems || [];
+  const nsAreas = nsData?.areas || {};
+
+  // Determine tier groupings from frontend data
+  const strongSystems = systems.filter(s => s.score >= 70).sort((a, b) => b.score - a.score);
+  const growthSystems = systems.filter(s => s.score >= 45 && s.score < 70).sort((a, b) => b.score - a.score);
+  const tensionSystems = systems.filter(s => s.score < 45).sort((a, b) => b.score - a.score);
+
+  const allStrengths = systems.flatMap(s => (s.strengths || []).map(str => ({ text: str, system: s.name })));
+  const allChallenges = systems.flatMap(s => (s.challenges || []).map(ch => ({ text: ch, system: s.name })));
+  const allAdvice = systems.filter(s => s.advice).map(s => ({ text: s.advice, system: s.name, icon: s.icon }));
+
+  // Lookup helper: get neuro-symbolic data for a system by id
+  function nsFor(sysId) {
+    return nsSystems.find(s => s.system_id === sysId) || null;
+  }
+
+  function handleDownload() {
+    const lines = [];
+    lines.push(`\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550`);
+    lines.push(`   ALL STAR ASTROLOGY \u2014 NEURO-SYMBOLIC ANALYSIS`);
+    lines.push(`\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550`);
+    lines.push(``);
+    lines.push(`${userName} (${userSign})  \u00D7  ${pName} (${partnerSign})`);
+    lines.push(`Generated: ${dateStr}`);
+    lines.push(``);
+    lines.push(`OVERALL COMPATIBILITY: ${finalScore}% \u2014 ${finalVerdict}`);
+    lines.push(finalVerdictText);
+    lines.push(``);
+    lines.push(`\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500`);
+    for (const sys of systems) {
+      const ns = nsFor(sys.id);
+      lines.push(``);
+      lines.push(`${sys.icon} ${sys.name.toUpperCase()} \u2014 ${sys.score}%${ns ? ` (Pipeline: ${ns.score}%, ${ns.harmony})` : ''}`);
+      lines.push(`${sys.summary}`);
+      lines.push(``);
+      lines.push(sys.detail);
+      if (ns) {
+        lines.push(``);
+        lines.push(`  ${userName}'s chart: ${ns.user_stance_explanation}`);
+        lines.push(`  ${pName}'s chart: ${ns.partner_stance_explanation}`);
+        lines.push(`  Harmony: ${ns.harmony_note}`);
+        if (ns.user_evidence?.length) {
+          lines.push(`  ${userName}'s evidence:`);
+          ns.user_evidence.forEach(e => lines.push(`    \u2022 ${e.feature}: ${e.value} (${e.category || 'general'})`));
+        }
+        if (ns.partner_evidence?.length) {
+          lines.push(`  ${pName}'s evidence:`);
+          ns.partner_evidence.forEach(e => lines.push(`    \u2022 ${e.feature}: ${e.value} (${e.category || 'general'})`));
+        }
+      }
+      if (sys.strengths?.length) {
+        lines.push(`  Strengths:`);
+        sys.strengths.forEach(s => lines.push(`    \u2726 ${s}`));
+      }
+      if (sys.challenges?.length) {
+        lines.push(`  Challenges:`);
+        sys.challenges.forEach(c => lines.push(`    \u26A0 ${c}`));
+      }
+      if (sys.advice) lines.push(`  Advice: ${sys.advice}`);
+      lines.push(`  Factors:`);
+      sys.factors.forEach(f => lines.push(`    ${f.label}: ${f.value} (${f.score}%)`));
+      lines.push(`\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500`);
+    }
+    if (Object.keys(nsAreas).length > 0) {
+      lines.push(``);
+      lines.push(`LIFE AREA CROSS-REFERENCE:`);
+      for (const [area, info] of Object.entries(nsAreas)) {
+        lines.push(`  ${area.toUpperCase()}: ${userName} ${info.user_score}% / ${pName} ${info.partner_score}% \u2192 Synergy ${info.synergy}%`);
+        lines.push(`    ${info.note}`);
+      }
+    }
+    lines.push(``);
+    lines.push(`KEY STRENGTHS:`);
+    allStrengths.forEach(s => lines.push(`  \u2726 ${s.text} (${s.system})`));
+    lines.push(``);
+    lines.push(`GROWTH AREAS:`);
+    allChallenges.forEach(c => lines.push(`  \u26A0 ${c.text} (${c.system})`));
+    lines.push(``);
+    lines.push(`GUIDANCE FROM EACH TRADITION:`);
+    allAdvice.forEach(a => lines.push(`  ${a.icon} ${a.system}: ${a.text}`));
+    lines.push(``);
+    lines.push(`\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550`);
+    lines.push(`  Generated by All Star Astrology \u2014 Neuro-Symbolic Engine`);
+    lines.push(`\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550`);
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${userName}_${pName}_compatibility_report.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function scoreColor(score) {
+    if (score >= 75) return 'var(--positive, #4ADE80)';
+    if (score >= 55) return 'var(--gold)';
+    if (score >= 40) return 'var(--caution, #FBBF24)';
+    return 'var(--negative, #F87171)';
+  }
+
+  const AREA_ICONS = { love: '\u2764', career: '\uD83C\uDFAF', health: '\uD83D\uDCAA', wealth: '\uD83D\uDCB0', mood: '\uD83C\uDF19' };
+
+  return (
+    <div className="ft-page fca-page fade-in" ref={reportRef}>
+      <button type="button" className="rdg-back" onClick={onBack}><IconBack /> <span>Back</span></button>
+
+      {/* ─── Header ─── */}
+      <div className={`fca-header ${revealStage >= 1 ? 'fca-visible' : 'fca-hidden'}`}>
+        <div className="fca-stars" aria-hidden="true">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <span key={i} className="fca-star" style={{
+              left: `${(i * 31 + 7) % 100}%`,
+              top: `${(i * 19 + 11) % 60}%`,
+              animationDelay: `${i * 0.3}s`,
+            }}>{'\u2726'}</span>
+          ))}
+        </div>
+        <p className="fca-kicker">Neuro-Symbolic Compatibility Report</p>
+        <h1 className="fca-title serif">{userName} & {pName}</h1>
+        <p className="fca-subtitle">{userSign} {SIGN_ICONS_MM[userSign]} {'\u00D7'} {SIGN_ICONS_MM[partnerSign]} {partnerSign}</p>
+        <p className="fca-date">{dateStr}</p>
+        {nsLoading && <p className="fca-loading-hint">Analyzing both charts through 8 engines...</p>}
+      </div>
+
+      {/* ─── Overall Score Ring ─── */}
+      <div className={`fca-score-section ${revealStage >= 2 ? 'fca-visible' : 'fca-hidden'}`}>
+        <div className="fca-ring">
+          <svg viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="var(--glass-border)" strokeWidth="7" />
+            <circle cx="60" cy="60" r="52" fill="none" stroke={scoreColor(finalScore)} strokeWidth="7"
+              strokeDasharray={`${finalScore * 3.267} 327`} strokeLinecap="round"
+              className="fca-ring-fill"
+              style={{ transform: 'rotate(-90deg)', transformOrigin: 'center' }} />
+          </svg>
+          <div className="fca-ring-inner">
+            <span className="fca-ring-score serif">{finalScore}%</span>
+            <span className="fca-ring-label">Overall</span>
+          </div>
+        </div>
+        <h2 className="fca-verdict serif">{finalVerdict}</h2>
+        <p className="fca-verdict-text">{finalVerdictText}</p>
+        {nsData && <p className="fca-engine-badge">Powered by neuro-symbolic pipeline</p>}
+      </div>
+
+      {/* ─── Life Area Synergy (backend) ─── */}
+      {Object.keys(nsAreas).length > 0 && (
+        <div className={`fca-areas ${revealStage >= 3 ? 'fca-visible' : 'fca-hidden'}`}>
+          <h3 className="fca-section-title serif">Life Area Synergy</h3>
+          <div className="fca-area-grid">
+            {Object.entries(nsAreas).map(([area, info]) => (
+              <div key={area} className="fca-area-card glass">
+                <div className="fca-area-hd">
+                  <span className="fca-area-icon">{AREA_ICONS[area] || '\u2022'}</span>
+                  <span className="fca-area-name">{area.charAt(0).toUpperCase() + area.slice(1)}</span>
+                  <span className="fca-area-synergy" style={{ color: scoreColor(info.synergy) }}>{info.synergy}%</span>
+                </div>
+                <div className="fca-area-bars">
+                  <div className="fca-area-bar-row">
+                    <span className="fca-area-bar-label">{userName}</span>
+                    <div className="fca-bar-track"><div className="fca-bar-fill" style={{ width: `${info.user_score}%`, background: scoreColor(info.user_score) }} /></div>
+                    <span className="fca-area-bar-pct">{info.user_score}%</span>
+                  </div>
+                  <div className="fca-area-bar-row">
+                    <span className="fca-area-bar-label">{pName}</span>
+                    <div className="fca-bar-track"><div className="fca-bar-fill" style={{ width: `${info.partner_score}%`, background: scoreColor(info.partner_score) }} /></div>
+                    <span className="fca-area-bar-pct">{info.partner_score}%</span>
+                  </div>
+                </div>
+                <p className="fca-area-note">{info.note}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─── At a Glance — 8 system bars ─── */}
+      <div className={`fca-glance ${revealStage >= 4 ? 'fca-visible' : 'fca-hidden'}`}>
+        <h3 className="fca-section-title serif">At a Glance</h3>
+        <div className="fca-bar-grid">
+          {systems.map((sys) => {
+            const ns = nsFor(sys.id);
+            return (
+              <div key={sys.id} className="fca-bar-row">
+                <span className="fca-bar-icon">{sys.icon}</span>
+                <span className="fca-bar-name">{sys.name}</span>
+                <div className="fca-bar-track">
+                  <div className="fca-bar-fill" style={{ width: `${sys.score}%`, background: scoreColor(sys.score) }} />
+                </div>
+                <span className="fca-bar-val" style={{ color: scoreColor(sys.score) }}>{sys.score}%</span>
+                {ns && <span className="fca-harmony-dot" title={ns.harmony} style={{ color: ns.harmony === 'aligned' ? '#4ADE80' : ns.harmony === 'complementary' ? 'var(--gold)' : '#FBBF24' }}>{'\u25CF'}</span>}
+              </div>
+            );
+          })}
+        </div>
+        {nsData && <p className="fca-legend"><span style={{ color: '#4ADE80' }}>{'\u25CF'}</span> aligned <span style={{ color: 'var(--gold)' }}>{'\u25CF'}</span> complementary <span style={{ color: '#FBBF24' }}>{'\u25CF'}</span> contrasting</p>}
+      </div>
+
+      {/* ─── Plain English: Where You Shine ─── */}
+      {strongSystems.length > 0 && (
+        <div className={`fca-tier fca-tier--strong ${revealStage >= 5 ? 'fca-visible' : 'fca-hidden'}`}>
+          <h3 className="fca-section-title serif">{'\u2728'} Where You Shine Together</h3>
+          <p className="fca-tier-intro">These systems show strong natural harmony between you two.</p>
+          {strongSystems.map((sys) => {
+            const ns = nsFor(sys.id);
+            return (
+              <div key={sys.id} className="fca-sys-block glass">
+                <div className="fca-sys-hd">
+                  <span className="fca-sys-icon">{sys.icon}</span>
+                  <span className="fca-sys-name serif">{sys.name}</span>
+                  <span className="fca-sys-pct" style={{ color: scoreColor(sys.score) }}>{sys.score}%</span>
+                </div>
+                <p className="fca-sys-prose">{sys.detail}</p>
+                {ns && (
+                  <div className="fca-ns-insight fade-in">
+                    <p className="fca-ns-label">Chart Cross-Reference</p>
+                    <p className="fca-ns-text">{ns.user_stance_explanation}</p>
+                    <p className="fca-ns-text">{ns.partner_stance_explanation}</p>
+                    <p className="fca-ns-harmony">{ns.harmony_note}</p>
+                    {ns.user_evidence?.length > 0 && (
+                      <div className="fca-evidence-row">
+                        {ns.user_evidence.slice(0, 3).map((e, i) => (
+                          <span key={i} className="fca-ev-tag">{e.feature}: {e.value}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {sys.strengths?.length > 0 && (
+                  <div className="fca-pills">
+                    {sys.strengths.map((s, i) => <span key={i} className="fca-pill fca-pill--good">{'\u2726'} {s}</span>)}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ─── Growth Areas ─── */}
+      {growthSystems.length > 0 && (
+        <div className={`fca-tier fca-tier--growth ${revealStage >= 6 ? 'fca-visible' : 'fca-hidden'}`}>
+          <h3 className="fca-section-title serif">{'\uD83C\uDF31'} Room to Grow</h3>
+          <p className="fca-tier-intro">These areas have promising potential but need attention and intention.</p>
+          {growthSystems.map((sys) => {
+            const ns = nsFor(sys.id);
+            return (
+              <div key={sys.id} className="fca-sys-block glass">
+                <div className="fca-sys-hd">
+                  <span className="fca-sys-icon">{sys.icon}</span>
+                  <span className="fca-sys-name serif">{sys.name}</span>
+                  <span className="fca-sys-pct" style={{ color: scoreColor(sys.score) }}>{sys.score}%</span>
+                </div>
+                <p className="fca-sys-prose">{sys.detail}</p>
+                {ns && (
+                  <div className="fca-ns-insight fade-in">
+                    <p className="fca-ns-label">Chart Cross-Reference</p>
+                    <p className="fca-ns-text">{ns.user_stance_explanation}</p>
+                    <p className="fca-ns-text">{ns.partner_stance_explanation}</p>
+                    <p className="fca-ns-harmony">{ns.harmony_note}</p>
+                  </div>
+                )}
+                {sys.challenges?.length > 0 && (
+                  <div className="fca-pills">
+                    {sys.challenges.map((c, i) => <span key={i} className="fca-pill fca-pill--warn">{c}</span>)}
+                  </div>
+                )}
+                {sys.advice && <p className="fca-advice">{'\u2192'} <strong>Advice:</strong> {sys.advice}</p>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ─── Tension Areas ─── */}
+      {tensionSystems.length > 0 && (
+        <div className={`fca-tier fca-tier--tension ${revealStage >= 7 ? 'fca-visible' : 'fca-hidden'}`}>
+          <h3 className="fca-section-title serif">{'\u26A1'} Cosmic Friction</h3>
+          <p className="fca-tier-intro">These traditions flag friction — but friction creates heat, and heat creates transformation.</p>
+          {tensionSystems.map((sys) => {
+            const ns = nsFor(sys.id);
+            return (
+              <div key={sys.id} className="fca-sys-block glass">
+                <div className="fca-sys-hd">
+                  <span className="fca-sys-icon">{sys.icon}</span>
+                  <span className="fca-sys-name serif">{sys.name}</span>
+                  <span className="fca-sys-pct" style={{ color: scoreColor(sys.score) }}>{sys.score}%</span>
+                </div>
+                <p className="fca-sys-prose">{sys.detail}</p>
+                {ns && (
+                  <div className="fca-ns-insight fade-in">
+                    <p className="fca-ns-label">Chart Cross-Reference</p>
+                    <p className="fca-ns-text">{ns.user_stance_explanation}</p>
+                    <p className="fca-ns-text">{ns.partner_stance_explanation}</p>
+                    <p className="fca-ns-harmony">{ns.harmony_note}</p>
+                  </div>
+                )}
+                {sys.challenges?.length > 0 && (
+                  <div className="fca-pills">
+                    {sys.challenges.map((c, i) => <span key={i} className="fca-pill fca-pill--warn">{c}</span>)}
+                  </div>
+                )}
+                {sys.advice && <p className="fca-advice">{'\u2192'} <strong>Advice:</strong> {sys.advice}</p>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ─── Combined Strengths & Challenges ─── */}
+      <div className={`fca-combined ${revealStage >= 8 ? 'fca-visible' : 'fca-hidden'}`}>
+        <h3 className="fca-section-title serif">Your Bond's Superpowers</h3>
+        <div className="fca-combined-list">
+          {allStrengths.slice(0, 8).map((s, i) => (
+            <div key={i} className="fca-combo-item fca-combo-item--good">
+              <span className="fca-combo-dot">{'\u2726'}</span>
+              <span className="fca-combo-text">{s.text}</span>
+              <span className="fca-combo-src">{s.system}</span>
+            </div>
+          ))}
+        </div>
+
+        <h3 className="fca-section-title serif" style={{ marginTop: 24 }}>Navigating Your Differences</h3>
+        <div className="fca-combined-list">
+          {allChallenges.slice(0, 6).map((c, i) => (
+            <div key={i} className="fca-combo-item fca-combo-item--warn">
+              <span className="fca-combo-dot">{'\u26A0'}</span>
+              <span className="fca-combo-text">{c.text}</span>
+              <span className="fca-combo-src">{c.system}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ─── Guidance from All Traditions ─── */}
+      <div className={`fca-guidance ${revealStage >= 9 ? 'fca-visible' : 'fca-hidden'}`}>
+        <h3 className="fca-section-title serif">Wisdom from All 8 Traditions</h3>
+        {allAdvice.map((a, i) => (
+          <div key={i} className="fca-advice-card glass">
+            <span className="fca-advice-icon">{a.icon}</span>
+            <div>
+              <span className="fca-advice-sys">{a.system}</span>
+              <p className="fca-advice-text">{a.text}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ─── Advanced Technical Breakdown ─── */}
+      <div className={`fca-advanced-toggle ${revealStage >= 10 ? 'fca-visible' : 'fca-hidden'}`}>
+        <button type="button" className="fca-adv-btn glass" onClick={() => setShowAdvanced(!showAdvanced)}>
+          {showAdvanced ? '\u25BC' : '\u25B6'} Advanced Neuro-Symbolic Breakdown
+        </button>
+      </div>
+
+      {showAdvanced && (
+        <div className="fca-advanced fade-in">
+          <h3 className="fca-section-title serif">Factor-by-Factor Technical Analysis</h3>
+          {systems.map((sys) => {
+            const ns = nsFor(sys.id);
+            return (
+              <div key={sys.id} className="fca-adv-sys">
+                <h4 className="fca-adv-sys-title">{sys.icon} {sys.name} {'\u2014'} {sys.score}%{ns ? ` (Pipeline: ${ns.score}%)` : ''}</h4>
+                <div className="fca-adv-factors">
+                  {sys.factors.map((f, i) => (
+                    <div key={i} className="fca-adv-factor">
+                      <div className="fca-adv-factor-hd">
+                        <span className="fca-adv-factor-label">{f.label}</span>
+                        <span className="fca-adv-factor-val">{f.value}</span>
+                      </div>
+                      <div className="fca-adv-factor-bar">
+                        <div className="fca-adv-factor-fill" style={{ width: `${f.score}%`, background: scoreColor(f.score) }} />
+                      </div>
+                      <span className="fca-adv-factor-pct">{f.score}%</span>
+                    </div>
+                  ))}
+                </div>
+                {ns && (
+                  <div className="fca-adv-evidence">
+                    <p className="fca-adv-evidence-title">Pipeline Evidence Trail</p>
+                    <div className="fca-adv-ev-cols">
+                      <div className="fca-adv-ev-col">
+                        <p className="fca-adv-ev-who">{userName}</p>
+                        {(ns.user_evidence || []).map((e, i) => (
+                          <div key={i} className="fca-adv-ev-item">
+                            <span className="fca-adv-ev-feature">{e.feature}</span>
+                            <span className="fca-adv-ev-value">{e.value}</span>
+                            {e.category && <span className="fca-adv-ev-cat">{e.category}</span>}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="fca-adv-ev-col">
+                        <p className="fca-adv-ev-who">{pName}</p>
+                        {(ns.partner_evidence || []).map((e, i) => (
+                          <div key={i} className="fca-adv-ev-item">
+                            <span className="fca-adv-ev-feature">{e.feature}</span>
+                            <span className="fca-adv-ev-value">{e.value}</span>
+                            {e.category && <span className="fca-adv-ev-cat">{e.category}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ─── Actions ─── */}
+      <div className={`fca-actions ${revealStage >= 11 ? 'fca-visible' : 'fca-hidden'}`}>
+        <button type="button" className="btn-gold fca-download-btn" onClick={handleDownload}>
+          {'\u2B07'} Download Full Report
+        </button>
+        <button type="button" className="btn-ghost" onClick={onBack} style={{ marginTop: 10 }}>
+          Back to Results
+        </button>
+      </div>
+
+      <p className="fca-footer">Generated by All Star Astrology {'\u2014'} Neuro-Symbolic Engine across 8 ancient traditions.</p>
+    </div>
+  );
+}
+
 function MatchMakingView({ form, onBack }) {
   useScrollTop();
   const [partnerName, setPartnerName] = useState('');
@@ -679,6 +1164,7 @@ function MatchMakingView({ form, onBack }) {
   const [result, setResult] = useState(null);
   const [expanded, setExpanded] = useState(null);
   const [loaded, setLoaded] = useState(false);
+  const [showFullAnalysis, setShowFullAnalysis] = useState(false);
 
   useEffect(() => {
     try {
@@ -705,9 +1191,14 @@ function MatchMakingView({ form, onBack }) {
   function changePartner() {
     setResult(null);
     setExpanded(null);
+    setShowFullAnalysis(false);
   }
 
   if (!loaded) return null;
+
+  if (showFullAnalysis && result) {
+    return <FullAnalysisView form={form} partnerName={partnerName} result={result} onBack={() => setShowFullAnalysis(false)} />;
+  }
 
   if (result) {
     const { overall, systems, userSign, partnerSign } = result;
@@ -788,7 +1279,10 @@ function MatchMakingView({ form, onBack }) {
           ))}
         </div>
 
-        <button type="button" className="ft-action-btn" onClick={changePartner} style={{ marginTop: 20 }}>
+        <button type="button" className="btn-gold fca-full-btn" onClick={() => setShowFullAnalysis(true)} style={{ marginTop: 20 }}>
+          View Full Combined Analysis
+        </button>
+        <button type="button" className="btn-ghost" onClick={changePartner} style={{ marginTop: 10 }}>
           Try Another Partner
         </button>
       </div>
@@ -1127,6 +1621,29 @@ function QuizFlow({ quiz, onBack, onComplete }) {
 /* ═══════════════════════════════════════════════════════
    KUNDLI VIEW
    ═══════════════════════════════════════════════════════ */
+class KdBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false }; }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  render() {
+    if (this.state.hasError) return <KdError title={this.props.title} onBack={this.props.onBack} />;
+    return this.props.children;
+  }
+}
+
+function KdError({ title, onBack }) {
+  return (
+    <div className="ft-page fade-in">
+      <button type="button" className="rdg-back" onClick={onBack}><IconBack /> <span>Back</span></button>
+      <h1 className="ft-title serif">{title}</h1>
+      <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--muted)' }}>
+        <p style={{ fontSize: '2rem', marginBottom: 12 }}>{'\u26A0\uFE0F'}</p>
+        <p style={{ fontSize: '.82rem' }}>Unable to generate this section with the current birth data.</p>
+        <p style={{ fontSize: '.72rem', marginTop: 8 }}>Please check your birth details and try again.</p>
+      </div>
+    </div>
+  );
+}
+
 const KUNDLI_SECTIONS = [
   { id: 'birth',     label: 'Birth Details',       icon: '\uD83D\uDCC4' },
   { id: 'chart',     label: 'Horoscope Chart',     icon: '\uD83D\uDD2E' },
@@ -1143,11 +1660,13 @@ const KUNDLI_SECTIONS = [
 function KundliView({ form, onBack }) {
   useScrollTop();
   const [section, setSection] = useState(null);
-  const details = useMemo(() => getKundliBirthDetails(form), [form]);
+  const details = useMemo(() => { try { return getKundliBirthDetails(form); } catch { return null; } }, [form]);
 
   if (section) {
     return <KundliSection sectionId={section} form={form} onBack={() => setSection(null)} />;
   }
+
+  if (!details) return <KdError title="Kundli" onBack={onBack} />;
 
   return (
     <div className="ft-page fade-in">
@@ -1174,25 +1693,30 @@ function KundliView({ form, onBack }) {
 
 function KundliSection({ sectionId, form, onBack }) {
   useScrollTop();
-  switch (sectionId) {
-    case 'birth':     return <KdBirthDetails form={form} onBack={onBack} />;
-    case 'chart':     return <KdChart form={form} onBack={onBack} />;
-    case 'planets':   return <KdPlanets form={form} onBack={onBack} />;
-    case 'favorable': return <KdFavorable form={form} onBack={onBack} />;
-    case 'dasha':     return <KdDasha form={form} onBack={onBack} />;
-    case 'life':      return <KdLifeReport form={form} onBack={onBack} />;
-    case 'dosha':     return <KdDosha form={form} onBack={onBack} />;
-    case 'remedies':  return <KdRemedies form={form} onBack={onBack} />;
-    case 'nakshatra': return <KdNakshatra form={form} onBack={onBack} />;
-    case 'biorhythm': return <KdBiorhythm form={form} onBack={onBack} />;
-    default: return null;
-  }
+  const label = KUNDLI_SECTIONS.find((s) => s.id === sectionId)?.label || 'Kundli';
+  const content = (() => {
+    switch (sectionId) {
+      case 'birth':     return <KdBirthDetails form={form} onBack={onBack} />;
+      case 'chart':     return <KdChart form={form} onBack={onBack} />;
+      case 'planets':   return <KdPlanets form={form} onBack={onBack} />;
+      case 'favorable': return <KdFavorable form={form} onBack={onBack} />;
+      case 'dasha':     return <KdDasha form={form} onBack={onBack} />;
+      case 'life':      return <KdLifeReport form={form} onBack={onBack} />;
+      case 'dosha':     return <KdDosha form={form} onBack={onBack} />;
+      case 'remedies':  return <KdRemedies form={form} onBack={onBack} />;
+      case 'nakshatra': return <KdNakshatra form={form} onBack={onBack} />;
+      case 'biorhythm': return <KdBiorhythm form={form} onBack={onBack} />;
+      default: return null;
+    }
+  })();
+  return <KdBoundary title={label} onBack={onBack}>{content}</KdBoundary>;
 }
 
 /* ── Birth Details ── */
 function KdBirthDetails({ form, onBack }) {
   useScrollTop();
-  const d = useMemo(() => getKundliBirthDetails(form), [form]);
+  const d = useMemo(() => { try { return getKundliBirthDetails(form); } catch { return null; } }, [form]);
+  if (!d) return <KdError title="Birth Details" onBack={onBack} />;
   const rows = [
     ['Name', d.name], ['Date of Birth', d.birthDate], ['Time of Birth', d.birthTime],
     ['Place of Birth', d.birthPlace], ['Day', d.dayOfWeek],
@@ -1222,7 +1746,8 @@ function KdBirthDetails({ form, onBack }) {
 /* ── Horoscope Chart (South Indian style) ── */
 function KdChart({ form, onBack }) {
   useScrollTop();
-  const chart = useMemo(() => getKundliChart(form), [form]);
+  const chart = useMemo(() => { try { return getKundliChart(form); } catch { return null; } }, [form]);
+  if (!chart) return <KdError title="Horoscope Chart" onBack={onBack} />;
   const [chartType, setChartType] = useState('lagna');
   // South Indian layout: fixed sign positions in a 4x4 grid (outer ring)
   // Positions: [row,col] → sign index mapping for South Indian
@@ -1289,7 +1814,8 @@ function KdChart({ form, onBack }) {
 /* ── Planetary Details ── */
 function KdPlanets({ form, onBack }) {
   useScrollTop();
-  const planets = useMemo(() => getKundliPlanets(form), [form]);
+  const planets = useMemo(() => { try { return getKundliPlanets(form); } catch { return null; } }, [form]);
+  if (!planets) return <KdError title="Planetary Details" onBack={onBack} />;
   return (
     <div className="ft-page fade-in">
       <button type="button" className="rdg-back" onClick={onBack}><IconBack /> <span>Back</span></button>
@@ -1324,7 +1850,8 @@ function KdPlanets({ form, onBack }) {
 /* ── Favorable For You ── */
 function KdFavorable({ form, onBack }) {
   useScrollTop();
-  const f = useMemo(() => getKundliFavorable(form), [form]);
+  const f = useMemo(() => { try { return getKundliFavorable(form); } catch { return null; } }, [form]);
+  if (!f) return <KdError title="Favorable For You" onBack={onBack} />;
   const items = [
     ['\uD83D\uDD22', 'Lucky Numbers', f.luckyNumbers.join(', ')],
     ['\uD83C\uDFA8', 'Lucky Colors', f.luckyColors.join(', ')],
@@ -1360,7 +1887,8 @@ function KdFavorable({ form, onBack }) {
 /* ── Vimshottari Dasha ── */
 function KdDasha({ form, onBack }) {
   useScrollTop();
-  const d = useMemo(() => getKundliDasha(form), [form]);
+  const d = useMemo(() => { try { return getKundliDasha(form); } catch { return null; } }, [form]);
+  if (!d) return <KdError title="Vimshottari Dasha" onBack={onBack} />;
   const [expanded, setExpanded] = useState(null);
   return (
     <div className="ft-page fade-in">
@@ -1416,7 +1944,8 @@ function KdDasha({ form, onBack }) {
 /* ── Life Report ── */
 function KdLifeReport({ form, onBack }) {
   useScrollTop();
-  const report = useMemo(() => getKundliLifeReport(form), [form]);
+  const report = useMemo(() => { try { return getKundliLifeReport(form); } catch { return null; } }, [form]);
+  if (!report) return <KdError title="Life Report" onBack={onBack} />;
   return (
     <div className="ft-page fade-in">
       <button type="button" className="rdg-back" onClick={onBack}><IconBack /> <span>Back</span></button>
@@ -1434,7 +1963,8 @@ function KdLifeReport({ form, onBack }) {
 /* ── Kundli Dosha ── */
 function KdDosha({ form, onBack }) {
   useScrollTop();
-  const data = useMemo(() => getKundliDosha(form), [form]);
+  const data = useMemo(() => { try { return getKundliDosha(form); } catch { return null; } }, [form]);
+  if (!data) return <KdError title="Kundli Dosha" onBack={onBack} />;
   const severityColor = { High: 'var(--coral)', Medium: '#FBBF24', Low: 'var(--teal)', None: 'var(--muted)' };
   return (
     <div className="ft-page fade-in">
@@ -1458,7 +1988,8 @@ function KdDosha({ form, onBack }) {
 /* ── Remedies ── */
 function KdRemedies({ form, onBack }) {
   useScrollTop();
-  const r = useMemo(() => getKundliRemedies(form), [form]);
+  const r = useMemo(() => { try { return getKundliRemedies(form); } catch { return null; } }, [form]);
+  if (!r) return <KdError title="Remedies" onBack={onBack} />;
   return (
     <div className="ft-page fade-in">
       <button type="button" className="rdg-back" onClick={onBack}><IconBack /> <span>Back</span></button>
@@ -1523,7 +2054,8 @@ function KdRemedies({ form, onBack }) {
 /* ── Nakshatra Prediction ── */
 function KdNakshatra({ form, onBack }) {
   useScrollTop();
-  const n = useMemo(() => getKundliNakshatra(form), [form]);
+  const n = useMemo(() => { try { return getKundliNakshatra(form); } catch { return null; } }, [form]);
+  if (!n) return <KdError title="Nakshatra Prediction" onBack={onBack} />;
   return (
     <div className="ft-page fade-in">
       <button type="button" className="rdg-back" onClick={onBack}><IconBack /> <span>Back</span></button>
@@ -1592,7 +2124,8 @@ function KdNakshatra({ form, onBack }) {
 /* ── Biorhythm Status ── */
 function KdBiorhythm({ form, onBack }) {
   useScrollTop();
-  const b = useMemo(() => getKundliBiorhythm(form), [form]);
+  const b = useMemo(() => { try { return getKundliBiorhythm(form); } catch { return null; } }, [form]);
+  if (!b) return <KdError title="Biorhythm Status" onBack={onBack} />;
   return (
     <div className="ft-page fade-in">
       <button type="button" className="rdg-back" onClick={onBack}><IconBack /> <span>Back</span></button>

@@ -10,9 +10,34 @@ from functools import lru_cache
 from typing import Any, Iterable
 from zoneinfo import ZoneInfo
 
-from geopy.geocoders import Nominatim
-from timezonefinder import TimezoneFinder
-import swisseph as swe
+try:
+    from geopy.geocoders import Nominatim
+except ModuleNotFoundError:
+    Nominatim = None
+
+try:
+    from timezonefinder import TimezoneFinder
+except ModuleNotFoundError:
+    TimezoneFinder = None
+
+try:
+    import swisseph as swe
+    _SWISSEPH_AVAILABLE = True
+except ModuleNotFoundError:
+    _SWISSEPH_AVAILABLE = False
+
+    class _MissingSwissEph:
+        def set_ephe_path(self, *_args: Any, **_kwargs: Any) -> None:
+            return None
+
+        def __getattr__(self, name: str) -> Any:
+            if name.isupper():
+                return 0
+            raise ModuleNotFoundError(
+                "swisseph is required for astro chart calculations. Install the optional chart-building dependencies."
+            )
+
+    swe = _MissingSwissEph()
 
 # Swiss Ephemeris will automatically fall back to the Moshier ephemeris for
 # many calculations when data files are not available. We still point it at a
@@ -20,8 +45,8 @@ import swisseph as swe
 swe.set_ephe_path(os.getenv("SE_EPHE_PATH", "."))
 
 SIDEREAL_LOCK = threading.Lock()
-GEOLOCATOR = Nominatim(user_agent="astrofusion-platform/1.0")
-TZFINDER = TimezoneFinder()
+GEOLOCATOR = Nominatim(user_agent="astrofusion-platform/1.0") if Nominatim is not None else None
+TZFINDER = TimezoneFinder() if TimezoneFinder is not None else None
 
 SIGNS = [
     "Aries",
@@ -459,6 +484,25 @@ class CalculationError(ValueError):
     pass
 
 
+def _missing_optional_dependencies(*, include_chart_runtime: bool) -> list[str]:
+    missing: list[str] = []
+    if GEOLOCATOR is None:
+        missing.append("geopy")
+    if TZFINDER is None:
+        missing.append("timezonefinder")
+    if include_chart_runtime and not _SWISSEPH_AVAILABLE:
+        missing.append("swisseph")
+    return missing
+
+
+def _require_optional_dependencies(*, include_chart_runtime: bool, feature: str) -> None:
+    missing = _missing_optional_dependencies(include_chart_runtime=include_chart_runtime)
+    if missing:
+        raise CalculationError(
+            f"{feature} requires optional dependencies that are not installed: {', '.join(missing)}."
+        )
+
+
 def clamp(value: float, minimum: float = 0.0, maximum: float = 100.0) -> float:
     return max(minimum, min(maximum, value))
 
@@ -496,6 +540,7 @@ def parse_birth_date(value: str) -> date:
 
 @lru_cache(maxsize=512)
 def resolve_location(location_text: str) -> dict[str, Any]:
+    _require_optional_dependencies(include_chart_runtime=False, feature="Birth location resolution")
     location_text = clean_text(location_text)
     if not location_text:
         raise CalculationError("Birth location is required.")
@@ -556,6 +601,7 @@ def julian_day_from_datetime(dt_utc: datetime) -> float:
 
 
 def build_context(payload: Any) -> dict[str, Any]:
+    _require_optional_dependencies(include_chart_runtime=True, feature="Birth chart construction")
     birth_date = parse_birth_date(payload.birth_date)
     birth_time = parse_birth_time(payload.birth_time)
     location = resolve_location(clean_text(payload.birth_location))

@@ -9,6 +9,7 @@ export const SIGNS = [
   'Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo',
   'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces',
 ];
+const _a = (s, cap) => { const r = /^[aeiou]/i.test(s) ? 'an ' + s : 'a ' + s; return cap ? r[0].toUpperCase() + r.slice(1) : r; };
 
 export const SIGN_ICONS = {
   Aries: '\u2648', Taurus: '\u2649', Gemini: '\u264A', Cancer: '\u264B',
@@ -219,7 +220,13 @@ export function playCompatibility(date1, date2) {
     elem_1: elem1, elem_2: elem2,
     score, vibe,
     teaser: `${sign1} + ${sign2} = ${score}% compatibility. This pairing shows ${vibe}.`,
-    premium_text: `Full breakdown: ${sign1} (${elem1}/${mod1}) and ${sign2} (${elem2}/${mod2}). Element match: ${elemScore}%. Modality match: ${modScore}%. For a complete picture including Moon, Venus, Mars, and all 8 systems, run a full combined reading.`,
+    premium_text: score >= 75
+      ? `${_a(sign1, true)} and ${_a(sign2)} together carry the kind of natural warmth that other couples spend years trying to build — you two just have it. Your instincts about each other tend to be right, and when you disagree it usually resolves quickly because neither of you wants distance more than connection. The biggest risk for a pairing this strong is taking each other for granted, so make a habit of saying what you appreciate out loud even when it feels obvious. This is a love that deepens with time rather than fading — lean into it and let it grow.`
+      : score >= 60
+      ? `${_a(sign1, true)} and ${_a(sign2)} bring out something real in each other — there is genuine chemistry here, even if it does not always look like the movies. You will find that your strengths cover each other's blind spots, which makes you a stronger team than either of you would be alone. When friction comes, and it will, remember that your differences are not the problem — the problem is only ever when one of you stops listening. Give this relationship patience and honesty, and it will reward you with the kind of partnership most people only hope for.`
+      : score >= 45
+      ? `${_a(sign1, true)} and ${_a(sign2)} together is not the easiest pairing, but it is far from impossible — some of the most transformative relationships live in this space. You will challenge each other in ways that feel uncomfortable at first, but those challenges are where the real growth happens for both of you. The key is learning to fight fair and to come back to each other after disagreements instead of retreating into silence or keeping score. If you both commit to understanding rather than winning, this connection has the power to change you for the better.`
+      : `${_a(sign1, true)} and ${_a(sign2)} are wired very differently, and being honest about that from the start is the most loving thing you can do for each other. You will need more patience, more communication, and more willingness to see the world through your partner's eyes than most couples require. The beautiful thing about difficult pairings is that when they work, they produce a love that is earned rather than inherited — and earned love is unshakeable. Do not try to change each other — instead, become genuinely curious about why your partner sees things differently.`,
     cta_label: 'View Full Combined Analysis',
     cta_system: 'combined-systems',
   };

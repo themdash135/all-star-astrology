@@ -55,7 +55,10 @@ export async function apiGet(endpoint) {
 export async function apiPost(endpoint, body) {
   try {
     return await localPost(endpoint, body);
-  } catch {
-    return supabasePost(endpoint, body);
+  } catch (err) {
+    console.warn(`[API] Local backend failed (${err.message}), falling back to Supabase`);
+    const result = await supabasePost(endpoint, body);
+    result._source = 'supabase';
+    return result;
   }
 }

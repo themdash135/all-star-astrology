@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import datetime
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,6 +13,20 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from backend.engines import bazi, chinese, combined, daily, gematria, games, kabbalistic, numerology, persian, vedic, western
 from backend.engines.common import CalculationError, build_context
 from backend.engines.oracle import compose_response as oracle_compose
+from backend.engines.pipeline.answer_composer import SYSTEM_NAMES
+from backend.engines.pipeline.engine import run as pipeline_run, ADAPTERS
+from backend.engines.pipeline.intent_classifier import classify as classify_intent
+from backend.engines.pipeline.aggregator import aggregate
+from backend.engines.pipeline.moon_phase import compute_phase, PHASES as MOON_PHASES
+from backend.engines.pipeline.planetary_hours import compute_planetary_hour, HOUR_MEANING
+from backend.engines.pipeline.retrograde import detect_retrogrades, RETROGRADE_EFFECTS
+from backend.engines.pipeline.schemas import SystemOpinion
+from backend.engines.pipeline.system_router import route as route_systems
+from backend.engines.pipeline.temporal import (
+    compute_temporal_modulation,
+    apply_temporal_modulation,
+    DAY_RULER,
+)
 
 
 def _clean_text(value: Any, *, field_name: str, required: bool, max_length: int) -> str:
@@ -77,6 +92,7 @@ class AskRequest(BaseModel):
 
     question: str = Field(..., description="User's question to the stars")
     reading_data: dict = Field(default_factory=dict, description="Full reading result for context")
+    question_history: list[str] = Field(default_factory=list, description="Up to 10 recent past questions for personalization")
 
     @field_validator('question', mode='before')
     @classmethod
@@ -92,6 +108,13 @@ class AskRequest(BaseModel):
         if len(json.dumps(value, default=str)) > 500_000:
             raise ValueError('Reading context is too large.')
         return value
+
+    @field_validator('question_history', mode='before')
+    @classmethod
+    def validate_question_history(cls, value: Any) -> list[str]:
+        if not isinstance(value, list):
+            return []
+        return [str(v)[:280] for v in value[:10] if isinstance(v, str)]
 
 
 app = FastAPI(
@@ -159,7 +182,89 @@ def reading(payload: ReadingRequest) -> dict[str, Any]:
 
 @app.post("/api/ask")
 def ask_stars(payload: AskRequest) -> dict[str, Any]:
-    return oracle_compose(payload.question, payload.reading_data)
+    history = payload.question_history[:10] if payload.question_history else []
+    result = pipeline_run(payload.question, payload.reading_data, history)
+    response = result.model_dump()
+    # Backward-compat: keep legacy evidence for existing frontend code
+    legacy = oracle_compose(payload.question, payload.reading_data)
+    response["evidence"] = legacy.get("evidence", [])
+    return response
+
+
+# ── Compatibility (neuro-symbolic) ─────────────────────────────────
+
+class CompatibilityRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    user: ReadingRequest = Field(..., description="User's birth data")
+    partner: ReadingRequest = Field(..., description="Partner's birth data")
+    intent: Optional[Literal["dating", "serious", "marriage", "healing"]] = Field(
+        "serious", description="Relationship intent mode — adjusts tone and emphasis"
+    )
+
+
+def _generate_reading(payload: ReadingRequest) -> dict[str, Any]:
+    """Generate a full 8-system reading from birth data."""
+    context = build_context(payload)
+    systems = {
+        "western": western.calculate(context),
+        "vedic": vedic.calculate(context),
+        "chinese": chinese.calculate(context),
+        "bazi": bazi.calculate(context),
+        "numerology": numerology.calculate(context),
+        "kabbalistic": kabbalistic.calculate(context),
+        "gematria": gematria.calculate(context),
+        "persian": persian.calculate(context),
+    }
+    merged = combined.calculate(context, systems)
+    return {
+        "meta": {
+            "birth_date": context["birth_date"].isoformat(),
+            "birth_time": context["birth_time"].isoformat(),
+            "birth_location": context["birth_location"],
+            "resolved_location": context["location"],
+            "timezone": context["timezone"],
+            "birth_local": context["birth_local"].isoformat(),
+            "birth_utc": context["birth_utc"].isoformat(),
+            "calculated_at": context["now_utc"].isoformat(),
+            "age_years": context["age_years"],
+        },
+        "systems": systems,
+        "combined": merged,
+    }
+
+
+def _cross_system_compatibility(
+    user_reading: dict[str, Any],
+    partner_reading: dict[str, Any],
+    user_name: str,
+    partner_name: str,
+    intent: str = "serious",
+) -> dict[str, Any]:
+    """Run deep cross-chart compatibility analysis across all 8 systems."""
+    from backend.engines.compatibility import compute as compat_compute
+    return compat_compute(user_reading, partner_reading, user_name, partner_name, intent=intent)
+
+
+@app.post("/api/compatibility")
+def compatibility(payload: CompatibilityRequest) -> dict[str, Any]:
+    """Generate a full neuro-symbolic compatibility analysis between two people."""
+    try:
+        user_reading = _generate_reading(payload.user)
+        partner_reading = _generate_reading(payload.partner)
+        user_name = payload.user.full_name or "You"
+        partner_name = payload.partner.full_name or "Partner"
+        analysis = _cross_system_compatibility(
+            user_reading, partner_reading, user_name, partner_name,
+            intent=payload.intent or "serious",
+        )
+        analysis["user_meta"] = user_reading["meta"]
+        analysis["partner_meta"] = partner_reading["meta"]
+        return analysis
+    except CalculationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Compatibility calculation error: {exc}") from exc
 
 
 @app.get("/api/games")
@@ -175,7 +280,428 @@ def play_game(payload: GameRequest) -> dict[str, Any]:
     return result
 
 
+# ── V2 API request models ────────────────────────────────────────
+
+class V2ScoresRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    reading_data: dict = Field(..., description="Full reading result from POST /api/reading")
+
+    @field_validator('reading_data')
+    @classmethod
+    def validate_reading_data(cls, value: dict[str, Any]) -> dict[str, Any]:
+        if len(json.dumps(value, default=str)) > 500_000:
+            raise ValueError('Reading context is too large.')
+        return value
+
+
+class V2DebateRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    question: str = Field(..., description="User's question to the stars")
+    reading_data: dict = Field(default_factory=dict, description="Full reading result for context")
+    question_history: list[str] = Field(default_factory=list, description="Up to 10 recent past questions")
+
+    @field_validator('question', mode='before')
+    @classmethod
+    def validate_question(cls, value: Any) -> str:
+        question = _clean_text(value, field_name='Question', required=True, max_length=280)
+        if len(question) < 2:
+            raise ValueError('Question must be at least 2 characters long.')
+        return question
+
+    @field_validator('reading_data')
+    @classmethod
+    def validate_reading_data(cls, value: dict[str, Any]) -> dict[str, Any]:
+        if len(json.dumps(value, default=str)) > 500_000:
+            raise ValueError('Reading context is too large.')
+        return value
+
+    @field_validator('question_history', mode='before')
+    @classmethod
+    def validate_question_history(cls, value: Any) -> list[str]:
+        if not isinstance(value, list):
+            return []
+        return [str(v)[:280] for v in value[:10] if isinstance(v, str)]
+
+
+# ── V2 Endpoints ────────────────────────────────────────────────
+
+@app.get("/api/v2/temporal")
+def v2_temporal() -> dict[str, Any]:
+    """Return current planetary hours, moon phase, day ruler, and retrograde effects.
+
+    This is a context-free endpoint — it uses the current time and does not
+    require a reading.  For retrograde data it needs Western system data, so
+    it returns a static summary from the effects table when no reading is
+    provided.
+    """
+    try:
+        now = datetime.datetime.now()
+
+        # ── Planetary hour ──────────────────────────────────────
+        hour_data = compute_planetary_hour(now)
+
+        # ── Day ruler ───────────────────────────────────────────
+        today = datetime.date.today()
+        day_ruler = DAY_RULER.get(today.weekday(), "Sun")
+
+        # ── Retrograde planets (static effects table) ───────────
+        # Without a live reading we expose the reference table so
+        # the frontend knows which planets to watch.
+        retrograde_reference = {
+            planet: {
+                "polarity": info["polarity"],
+                "domains": info["domains"],
+                "caution": info["caution"],
+                "advice": info["advice"],
+            }
+            for planet, info in RETROGRADE_EFFECTS.items()
+        }
+
+        # ── Moon phase (approximate from time-of-day) ───────────
+        # Without Western engine data we return the hour-based
+        # approximation.  Lunar phase ranges 0-29.53 days.
+        # We compute a synthetic lunar day from the date.
+        # Known new-moon reference: 2026-01-19.
+        ref_new_moon = datetime.date(2026, 1, 19)
+        days_since = (today - ref_new_moon).days
+        lunar_day = days_since % 29.53
+        synodic_angle = (lunar_day / 29.53) * 360.0
+
+        phase_info = None
+        for lo, hi, name, polarity, advice in MOON_PHASES:
+            if lo <= synodic_angle < hi:
+                phase_info = {
+                    "phase_name": name,
+                    "phase_angle": round(synodic_angle, 1),
+                    "polarity": polarity,
+                    "advice": advice,
+                    "lunar_day": round(lunar_day, 1),
+                }
+                break
+        if phase_info is None:
+            phase_info = {
+                "phase_name": "New Moon",
+                "phase_angle": round(synodic_angle, 1),
+                "polarity": -0.8,
+                "advice": "withdraw, seed intentions",
+                "lunar_day": round(lunar_day, 1),
+            }
+
+        return {
+            "timestamp": now.isoformat(),
+            "planetary_hour": {
+                "ruler": hour_data["ruler"],
+                "meaning": hour_data["meaning"],
+                "polarity": hour_data["polarity"],
+                "hour_index": hour_data["hour_index"],
+                "is_day": hour_data["is_day"],
+                "period": "day" if hour_data["is_day"] else "night",
+            },
+            "day_ruler": {
+                "planet": day_ruler,
+                "weekday": today.strftime("%A"),
+                "meaning": HOUR_MEANING.get(day_ruler, ""),
+            },
+            "moon_phase": phase_info,
+            "retrograde_reference": retrograde_reference,
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Temporal computation error: {exc}") from exc
+
+
+# Domain mapping: the 6 frontend domains mapped to the 5 internal pipeline domains
+_SCORE_DOMAINS = {
+    "career":      "career",
+    "love":        "love",
+    "health":      "health",
+    "money":       "wealth",
+    "creativity":  "mood",
+    "spirituality": "mood",
+}
+
+# All 8 system IDs
+_ALL_SYSTEM_IDS = ["western", "vedic", "chinese", "bazi", "numerology", "kabbalistic", "gematria", "persian"]
+
+
+@app.post("/api/v2/scores")
+def v2_scores(payload: V2ScoresRequest) -> dict[str, Any]:
+    """Compute daily life-area scores (-3 to +3) from all 8 systems.
+
+    For each system, generates opinions across six life-area probe questions,
+    then maps the aggregated stance and confidence to a score in the -3 to +3
+    range. Positive scores indicate favorable energy; negative scores indicate
+    caution.
+    """
+    try:
+        reading = payload.reading_data
+        systems_data = reading.get("systems", {})
+
+        # Probe intents — one per domain
+        domain_probes = {
+            "career":      "career_question",
+            "love":        "relationship_question",
+            "health":      "health_energy_question",
+            "money":       "career_question",
+            "creativity":  "emotional_state_question",
+            "spirituality": "general_guidance_question",
+        }
+
+        domain_tag_map = {
+            "career":      ["career"],
+            "love":        ["love"],
+            "health":      ["health"],
+            "money":       ["wealth"],
+            "creativity":  ["mood", "career"],
+            "spirituality": ["mood"],
+        }
+
+        scores: dict[str, dict[str, Any]] = {}
+
+        for domain, q_type in domain_probes.items():
+            # Build a synthetic intent for this domain
+            intent = classify_intent(f"How is my {domain} energy today?")
+            intent = intent.model_copy(update={
+                "question_type": q_type,
+                "domain_tags": domain_tag_map[domain],
+                "time_horizon": "today",
+            })
+
+            # Run all adapters
+            opinions: list[SystemOpinion] = []
+            per_system: dict[str, dict[str, Any]] = {}
+
+            for sys_id in _ALL_SYSTEM_IDS:
+                adapter = ADAPTERS.get(sys_id)
+                if adapter is None:
+                    continue
+                sys_data = systems_data.get(sys_id, {})
+                try:
+                    opinion = adapter.evaluate(sys_data, intent)
+                except Exception:
+                    opinion = SystemOpinion(
+                        system_id=sys_id,
+                        relevant=False,
+                        stance={"favorable": 0.5, "cautious": 0.5},
+                        confidence=0.0,
+                        reason="System unavailable",
+                        evidence=[],
+                    )
+                opinions.append(opinion)
+
+                # Per-system detail
+                favorable = opinion.stance.get("favorable", 0.5)
+                cautious = opinion.stance.get("cautious", 0.5)
+                sentiment = favorable - cautious  # -1 to +1
+                mapped_score = round(sentiment * opinion.confidence * 3, 1)
+                mapped_score = max(-3.0, min(3.0, mapped_score))
+
+                per_system[sys_id] = {
+                    "name": SYSTEM_NAMES.get(sys_id, sys_id),
+                    "score": mapped_score,
+                    "confidence": round(opinion.confidence, 2),
+                    "favorable": round(favorable, 3),
+                    "cautious": round(cautious, 3),
+                    "relevant": opinion.relevant,
+                    "reason": opinion.reason,
+                }
+
+            # Apply temporal modulation
+            temporal_mods = compute_temporal_modulation(reading)
+            apply_temporal_modulation(opinions, temporal_mods, domain_tag_map[domain])
+
+            # Aggregate
+            aggregation = aggregate(opinions, intent)
+
+            # Map aggregated result to -3 to +3 score
+            fav_score = aggregation.scores.get("favorable", 0.5)
+            cau_score = aggregation.scores.get("cautious", 0.5)
+            net_sentiment = fav_score - cau_score  # -1 to +1
+            final_score = round(net_sentiment * aggregation.confidence * 3, 1)
+            final_score = max(-3.0, min(3.0, final_score))
+
+            scores[domain] = {
+                "score": final_score,
+                "confidence": aggregation.confidence,
+                "confidence_label": aggregation.confidence_label,
+                "winner": aggregation.winner,
+                "favorable": round(fav_score, 3),
+                "cautious": round(cau_score, 3),
+                "systems": per_system,
+                "temporal_modulation": {
+                    k: round(v, 4) for k, v in temporal_mods.items()
+                },
+            }
+
+        return {
+            "scores": scores,
+            "domains": list(scores.keys()),
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Score computation error: {exc}") from exc
+
+
+@app.post("/api/v2/debate")
+def v2_debate(payload: V2DebateRequest) -> dict[str, Any]:
+    """Full pipeline result with expanded debate data.
+
+    Runs the same pipeline as /api/ask but exposes ALL internal data:
+    per-system opinions with evidence, conflict notes, system routing info,
+    pattern analysis, temporal modulation, classification details, and
+    aggregation internals.
+    """
+    try:
+        history = payload.question_history[:10] if payload.question_history else []
+        reading = payload.reading_data
+        systems_data = reading.get("systems", {})
+
+        # 1. Run the full pipeline
+        result = pipeline_run(payload.question, reading, history)
+        response = result.model_dump()
+
+        # 2. Expand per-system opinions with full evidence
+        expanded_opinions = []
+        for opinion in result.aggregation.opinions:
+            op_data = opinion.model_dump()
+            # Add human-readable system name
+            op_data["system_name"] = SYSTEM_NAMES.get(opinion.system_id, opinion.system_id)
+            # Determine sentiment relative to winner
+            winner = result.aggregation.winner
+            stance_for_winner = opinion.stance.get(winner, 0.5)
+            if stance_for_winner >= 0.6:
+                op_data["sentiment"] = "supports"
+            elif stance_for_winner >= 0.45:
+                op_data["sentiment"] = "neutral"
+            else:
+                op_data["sentiment"] = "cautions"
+            op_data["stance_for_winner"] = round(stance_for_winner, 3)
+            # Full evidence (not truncated to 4 like system_signals)
+            op_data["evidence"] = [e.model_dump() for e in opinion.evidence]
+            expanded_opinions.append(op_data)
+
+        # 3. System routing information
+        intent = result.classification
+        all_system_ids = route_systems(intent)
+        routing_info = {
+            "selected_systems": all_system_ids,
+            "question_type": intent.question_type,
+            "domain_tags": intent.domain_tags,
+            "time_horizon": intent.time_horizon,
+            "emotional_charge": intent.emotional_charge,
+            "feasibility": intent.feasibility,
+            "specificity": intent.specificity,
+            "negated": intent.negated,
+        }
+
+        # 4. Temporal modulation
+        temporal_mods = compute_temporal_modulation(reading)
+
+        # 5. Retrograde status (if Western data available)
+        western_data = systems_data.get("western", {})
+        retrogrades = detect_retrogrades(western_data)
+
+        # 6. Moon phase (if Western data available)
+        moon_phase = compute_phase(western_data)
+
+        # 7. Planetary hour
+        hour_data = compute_planetary_hour()
+
+        # 8. Conflict analysis
+        conflict_analysis = {
+            "near_split": result.aggregation.near_split,
+            "polarized": result.aggregation.polarized,
+            "multi_path": result.aggregation.multi_path,
+            "clustered": result.aggregation.clustered,
+            "score_gap": result.aggregation.score_gap,
+            "system_agreement": result.aggregation.system_agreement,
+        }
+
+        # 9. Dissenting systems
+        dissenters = []
+        for opinion in result.aggregation.opinions:
+            if not opinion.relevant:
+                continue
+            winner = result.aggregation.winner
+            stance_for_winner = opinion.stance.get(winner, 0.5)
+            if stance_for_winner < 0.45:
+                dissenters.append({
+                    "system_id": opinion.system_id,
+                    "system_name": SYSTEM_NAMES.get(opinion.system_id, opinion.system_id),
+                    "stance_for_winner": round(stance_for_winner, 3),
+                    "reason": opinion.reason,
+                    "stance_explanation": opinion.stance_explanation,
+                    "top_evidence": [
+                        {"feature": e.feature, "value": e.value, "weight": e.weight}
+                        for e in sorted(opinion.evidence, key=lambda e: e.weight, reverse=True)[:3]
+                    ],
+                })
+
+        # 10. Supporting systems
+        supporters = []
+        for opinion in result.aggregation.opinions:
+            if not opinion.relevant:
+                continue
+            winner = result.aggregation.winner
+            stance_for_winner = opinion.stance.get(winner, 0.5)
+            if stance_for_winner >= 0.6:
+                supporters.append({
+                    "system_id": opinion.system_id,
+                    "system_name": SYSTEM_NAMES.get(opinion.system_id, opinion.system_id),
+                    "stance_for_winner": round(stance_for_winner, 3),
+                    "reason": opinion.reason,
+                    "stance_explanation": opinion.stance_explanation,
+                    "top_evidence": [
+                        {"feature": e.feature, "value": e.value, "weight": e.weight}
+                        for e in sorted(opinion.evidence, key=lambda e: e.weight, reverse=True)[:3]
+                    ],
+                })
+
+        # Build the full debate response
+        response["debate"] = {
+            "opinions": expanded_opinions,
+            "routing": routing_info,
+            "temporal": {
+                "modulation": {k: round(v, 4) for k, v in temporal_mods.items()},
+                "planetary_hour": {
+                    "ruler": hour_data["ruler"],
+                    "meaning": hour_data["meaning"],
+                    "polarity": hour_data["polarity"],
+                    "is_day": hour_data["is_day"],
+                },
+                "retrogrades": retrogrades,
+                "moon_phase": moon_phase,
+            },
+            "conflict_analysis": conflict_analysis,
+            "supporters": supporters,
+            "dissenters": dissenters,
+        }
+
+        # Backward-compat: keep legacy evidence
+        legacy = oracle_compose(payload.question, reading)
+        response["evidence"] = legacy.get("evidence", [])
+
+        return response
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Debate computation error: {exc}") from exc
+
+
 FRONTEND_DIST = Path(__file__).resolve().parents[1] / "frontend" / "dist"
+FRONTEND_V2_DIST = Path(__file__).resolve().parents[1] / "frontend-v2" / "dist"
+
+
+@app.get("/v2", include_in_schema=False)
+@app.get("/v2/{full_path:path}", include_in_schema=False)
+def serve_v2(full_path: str = "") -> FileResponse:
+    if full_path.startswith("api"):
+        raise HTTPException(status_code=404, detail="Not found")
+    target = FRONTEND_V2_DIST / full_path
+    if target.exists() and target.is_file():
+        return FileResponse(target)
+    index_file = FRONTEND_V2_DIST / "index.html"
+    if index_file.exists():
+        return FileResponse(index_file)
+    raise HTTPException(status_code=404, detail="Frontend V2 has not been built yet.")
 
 
 @app.get("/", include_in_schema=False)

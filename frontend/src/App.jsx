@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
+import { App as CapApp } from '@capacitor/app';
 
 import { BLANK, FORM_KEY, MOTION_KEY, ORACLE_HISTORY_KEY, RESULT_KEY, SPLASH_KEY, THEME_KEY } from './app/constants.js';
-import { apiPost } from './app/api.js';
+import { apiPost, apiGet } from './app/api.js';
 import { styles } from './app/styles.js';
 import { readStoredForm, readStoredResult, safeGet, safeRemove, safeSet } from './app/storage.js';
 import { useMotionMode } from './hooks/useMotionMode.js';
@@ -11,16 +12,18 @@ import { OracleScreen } from './components/OracleScreen.jsx';
 import { SplashScreen } from './components/SplashScreen.jsx';
 import {
   BottomNav,
-  CombinedSystemsContent,
   ProfileContent,
 } from './components/MainViews.jsx';
 import { ReadingsScreen } from './components/ReadingsScreen.jsx';
 import { GamesScreen } from './components/GamesScreen.jsx';
 import { SystemApp } from './components/SystemApp.jsx';
+import { TodayTab } from './components/TodayTab.jsx';
+import { SystemsTabV2 } from './components/SystemsTabV2.jsx';
+import { FullCombinedAnalysis } from './components/FullCombinedAnalysis.jsx';
 
 export default function App() {
   const [view, setView] = useState('splash');
-  const [tab, setTab] = useState('oracle');
+  const [tab, setTab] = useState('today');
   const [detailSystem, setDetailSystem] = useState(null);
   const [form, setForm] = useState(() => readStoredForm());
   const [result, setResult] = useState(null);
@@ -29,6 +32,8 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [theme, setTheme] = useState(() => safeGet(THEME_KEY) || 'dark');
   const { motionSetting, setMotionSetting, reducedMotion } = useMotionMode();
+  const [temporal, setTemporal] = useState(null);
+  const [scores, setScores] = useState(null);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -54,9 +59,35 @@ export default function App() {
     }
   }, []);
 
+  // Fetch temporal data on load
+  useEffect(() => {
+    apiGet('v2/temporal').then(setTemporal).catch(() => {});
+  }, []);
+
+  // Fetch scores when result is available
+  useEffect(() => {
+    if (result) {
+      apiPost('v2/scores', { reading_data: result }).then(setScores).catch(() => {});
+    }
+  }, [result]);
+
   useEffect(() => {
     safeSet(FORM_KEY, JSON.stringify(form));
   }, [form]);
+
+  const handleBackButton = useCallback(() => {
+    if (view !== 'main') return;
+    if (detailSystem) { setDetailSystem(null); return; }
+    if (settingsOpen) { setSettingsOpen(false); return; }
+    if (tab === 'analysis') { setTab('today'); return; }
+    if (tab !== 'today') { setTab('today'); return; }
+    CapApp.minimizeApp();
+  }, [view, detailSystem, settingsOpen, tab]);
+
+  useEffect(() => {
+    const listener = CapApp.addListener('backButton', handleBackButton);
+    return () => { listener.then(l => l.remove()); };
+  }, [handleBackButton]);
 
   function handleSplash() {
     safeSet(SPLASH_KEY, '1');
@@ -84,7 +115,7 @@ export default function App() {
       setResult(payload);
       safeSet(RESULT_KEY, JSON.stringify(payload));
       setView('main');
-      setTab('oracle');
+      setTab('today');
       setDetailSystem(null);
     } catch (err) {
       setError(err.message || 'Unexpected error.');
@@ -113,6 +144,8 @@ export default function App() {
     setForm({ ...BLANK });
     setTheme('dark');
     setMotionSetting('system');
+    setTemporal(null);
+    setScores(null);
     setView('splash');
   }
 
@@ -173,12 +206,16 @@ export default function App() {
               setMotionSetting={setMotionSetting}
               onBack={() => setSettingsOpen(false)}
             />
+          ) : tab === 'today' ? (
+            <TodayTab result={result} temporal={temporal} scores={scores} onOpenSettings={() => setSettingsOpen(true)} onAnalysis={() => setTab('analysis')} />
+          ) : tab === 'systems' ? (
+            <SystemsTabV2 result={result} />
           ) : tab === 'oracle' ? (
-            <OracleScreen result={result} form={form} reducedMotion={reducedMotion} onOpenSettings={() => setSettingsOpen(true)} />
-          ) : tab === 'combined-systems' ? (
-            <CombinedSystemsContent result={result} onSystemTap={setDetailSystem} />
+            <OracleScreen result={result} form={form} reducedMotion={reducedMotion} />
+          ) : tab === 'analysis' ? (
+            <FullCombinedAnalysis result={result} form={form} onBack={() => handleTab('today')} />
           ) : tab === 'games' ? (
-            <GamesScreen form={form} onNavigate={(target) => { if (target === 'oracle') { handleTab('oracle'); } else { handleTab('combined-systems'); } }} />
+            <GamesScreen form={form} onNavigate={(target) => { if (target === 'oracle') { handleTab('oracle'); } else if (target === 'combined' || target === 'analysis' || target === 'combined-systems') { setTab('analysis'); } else { handleTab('systems'); } }} />
           ) : tab === 'readings' ? (
             <ReadingsScreen form={form} onSystemTap={setDetailSystem} />
           ) : null}

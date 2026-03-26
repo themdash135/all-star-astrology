@@ -172,6 +172,12 @@ GAME_REGISTRY = {
 # Shared engine helpers
 # ──────────────────────────────────────────────
 
+def _a(sign: str, cap: bool = False) -> str:
+    """Return 'an Aries' or 'a Taurus' — correct article for a zodiac sign."""
+    s = f"an {sign}" if sign[0] in "AEIOUaeiou" else f"a {sign}"
+    return s[0].upper() + s[1:] if cap else s
+
+
 def _seeded_rng(seed_str: str) -> random.Random:
     """Deterministic RNG from a string seed."""
     h = int(hashlib.sha256(seed_str.encode()).hexdigest(), 16)
@@ -306,12 +312,29 @@ def play_compatibility(params: dict[str, Any]) -> dict[str, Any]:
         f"This pairing shows {vibe}."
     )
 
-    premium = (
-        f"Full compatibility breakdown: {sign1} ({elem1}/{mod1}) and {sign2} ({elem2}/{mod2}). "
-        f"Element match: {element_score}% — {'harmonious' if element_score >= 70 else 'challenging but growth-oriented'}. "
-        f"Modality match: {modality_score}% — {'flowing rhythm' if modality_score >= 65 else 'different pacing that needs patience'}. "
-        f"For a complete picture including Moon sign, Venus, Mars, and all 8 systems, run a full combined reading."
-    )
+    # Plain English love reading — 4 sentences, no data
+    if score >= 75:
+        s1 = f"{_a(sign1, True)} and {_a(sign2)} together carry the kind of natural warmth that other couples spend years trying to build — you two just have it."
+        s2 = "Your instincts about each other tend to be right, and when you disagree it usually resolves quickly because neither of you wants distance more than connection."
+        s3 = "The biggest risk for a pairing this strong is taking each other for granted, so make a habit of saying what you appreciate out loud even when it feels obvious."
+        s4 = "This is a love that deepens with time rather than fading — lean into it and let it grow."
+    elif score >= 60:
+        s1 = f"{_a(sign1, True)} and {_a(sign2)} bring out something real in each other — there is genuine chemistry here, even if it does not always look like the movies."
+        s2 = "You will find that your strengths cover each other's blind spots, which makes you a stronger team than either of you would be alone."
+        s3 = "When friction comes, and it will, remember that your differences are not the problem — the problem is only ever when one of you stops listening."
+        s4 = "Give this relationship patience and honesty, and it will reward you with the kind of partnership most people only hope for."
+    elif score >= 45:
+        s1 = f"{_a(sign1, True)} and {_a(sign2)} together is not the easiest pairing, but it is far from impossible — some of the most transformative relationships live in this space."
+        s2 = "You will challenge each other in ways that feel uncomfortable at first, but those challenges are where the real growth happens for both of you."
+        s3 = "The key is learning to fight fair and to come back to each other after disagreements instead of retreating into silence or keeping score."
+        s4 = "If you both commit to understanding rather than winning, this connection has the power to change you for the better."
+    else:
+        s1 = f"{_a(sign1, True)} and {_a(sign2)} are wired very differently, and being honest about that from the start is the most loving thing you can do for each other."
+        s2 = "You will need more patience, more communication, and more willingness to see the world through your partner's eyes than most couples require."
+        s3 = "The beautiful thing about difficult pairings is that when they work, they produce a love that is earned rather than inherited — and earned love is unshakeable."
+        s4 = "Do not try to change each other. Instead, become genuinely curious about why your partner sees things differently — that curiosity is what keeps the door open."
+
+    premium = f"{s1} {s2} {s3} {s4}"
 
     return {
         "sign_1": sign1,

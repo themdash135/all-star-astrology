@@ -5,8 +5,9 @@ const config: CapacitorConfig = {
   appName: 'All Star Astrology',
   webDir: 'dist',
   server: {
-    // No local server needed — API calls go directly to Supabase Edge Functions.
-    // Allow cleartext for development flexibility.
+    // For dev: point to the local backend so /api/* routes reach FastAPI.
+    // Remove this url for production builds (API calls will fall back to Supabase).
+    url: 'http://localhost:8892',
     cleartext: true,
   },
   android: {

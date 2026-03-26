@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
 
 import { playDice, playFate, playCompatibility, playNumerology } from '../app/games-engine.js';
+import { safeGet } from '../app/storage.js';
 import { IconBack } from './common.jsx';
+
+const PARTNER_KEY = 'allstar-partner-info';
 
 const GAMES = [
   {
@@ -66,15 +69,49 @@ export function GamesScreen({ form, onNavigate }) {
   const [error, setError] = useState('');
 
   function openGame(game) {
+    // Read user DOB from form prop, fall back to stored form
+    let userDate = form?.birth_date || '';
+    if (!userDate) {
+      try {
+        const sf = JSON.parse(safeGet('allstar-form') || 'null');
+        if (sf?.birth_date) userDate = sf.birth_date;
+      } catch { /* ignore */ }
+    }
+
+    // Read partner DOB from stored partner info
+    let partnerDate = '';
+    try {
+      const saved = JSON.parse(safeGet(PARTNER_KEY) || 'null');
+      if (saved?.birth_date) partnerDate = saved.birth_date;
+    } catch { /* ignore */ }
+
     const defaults = {};
     for (const key of game.inputs) {
-      defaults[key] = (key === 'birth_date' || key === 'birth_date_1') ? (form?.birth_date || '') : '';
+      if (key === 'birth_date' || key === 'birth_date_1') {
+        defaults[key] = userDate;
+      } else if (key === 'birth_date_2') {
+        defaults[key] = partnerDate;
+      } else {
+        defaults[key] = '';
+      }
     }
     setInputs(defaults);
     setActiveGame(game);
     setResult(null);
     setPendingResult(null);
     setError('');
+
+    // Auto-play if all inputs are filled (e.g. partner already saved)
+    const allFilled = game.inputs.length === 0 || game.inputs.every((k) => defaults[k]?.trim());
+    if (allFilled && game.inputs.length > 0) {
+      const fn = PLAY_FNS[game.game_id];
+      const data = fn(defaults);
+      if (!data.error) {
+        setPendingResult(data);
+        setRevealing(true);
+        return;
+      }
+    }
     setRevealing(false);
   }
 
@@ -228,9 +265,6 @@ export function GamesScreen({ form, onNavigate }) {
             </button>
           )}
 
-          <button type="button" className="gm-again" onClick={() => { setResult(null); setError(''); }}>
-            Consult Again
-          </button>
         </div>
       )}
     </div>

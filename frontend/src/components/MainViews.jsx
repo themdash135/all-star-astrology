@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 
-import { AREAS, SYSTEMS } from '../app/constants.js';
+import { AREAS, CITIES, SYSTEMS, ORACLE_HISTORY_KEY } from '../app/constants.js';
 import { safeGet, safeSet } from '../app/storage.js';
 import {
   areaExplanation,
@@ -96,7 +96,7 @@ export function HomeContent({ result, form, onTabChange }) {
                 <div className="hsc-expand fade-in">
                   <p className="hsc-explain">{areaExplanation(result, area.key)}</p>
                   <div className="hsc-meta">
-                    <span className="hsc-agree">{agreeing} of 8 agree{confidence != null && ` · ${confidence}% confidence`}</span>
+                    <span className="hsc-agree">{agreeing} of 8 aligned{confidence != null && ` · ${confidence}% agreement`}</span>
                   </div>
                   <div className="hsc-votes" aria-label={`${area.label} system votes`}>
                     {votes.map((vote) => (
@@ -165,7 +165,7 @@ export function SystemsContent({ result, onSystemTap, embedded }) {
               <span className="sys-tile-name">{system.name}</span>
               {average != null && <span className="sys-tile-avg" style={{ color: scoreColor(average) }}>{average}%</span>}
               <span className={`sys-tile-agreement sys-tile-agreement--${agreement.level}`}>
-                {agreement.level === 'unknown' ? '—' : `${agreement.agreeing}/8 agree`}
+                {agreement.level === 'unknown' ? '—' : `${agreement.agreeing}/8 aligned`}
               </span>
             </button>
           );
@@ -302,7 +302,7 @@ function buildAreaExplanation(areaKey, areaLabel, info) {
     closingLine = `This is a period for patience and care around ${areaLabel.toLowerCase()}.`;
   }
 
-  return `${opening}${strengthLine}${cautionLine} ${closingLine}`;
+  return `This score blends your birth chart with current planetary transits — it reflects your overall alignment, not just today. ${opening}${strengthLine}${cautionLine} ${closingLine}`;
 }
 
 export function CombinedContent({ data, embedded }) {
@@ -347,7 +347,7 @@ export function CombinedContent({ data, embedded }) {
                 <span className="csc-pct serif" style={{ color: scoreColor(value) }}>{value}%</span>
               </div>
               <div className="csc-bar"><div className="bar-anim" style={{ width: `${value}%`, background: scoreGradient(value), animationDelay: `${index * 0.06 + .2}s` }} /></div>
-              {confidence != null && <div className="csc-conf">Confidence: {confidence}%</div>}
+              {confidence != null && <div className="csc-conf">Agreement: {confidence}%</div>}
               {info.agreeing_systems && <div className="csc-sys">{info.agreeing_systems.join(' · ')}</div>}
             </div>
           );
@@ -395,12 +395,12 @@ export function CombinedContent({ data, embedded }) {
         <p className="area-modal-explain">{buildAreaExplanation(activeArea, activeAreaDef.label, activeInfo)}</p>
         {activeInfo.agreeing_systems?.length > 0 && (
           <div className="area-modal-systems">
-            <span className="area-modal-systems-label">Systems in agreement:</span>
+            <span className="area-modal-systems-label">Systems aligned:</span>
             <span className="area-modal-systems-list">{activeInfo.agreeing_systems.join(' · ')}</span>
           </div>
         )}
         {activeInfo.confidence != null && (
-          <div className="area-modal-conf">Confidence: {Math.round(activeInfo.confidence)}%</div>
+          <div className="area-modal-conf">Agreement: {Math.round(activeInfo.confidence)}%</div>
         )}
         <button type="button" className="btn-gold area-modal-close" onClick={() => setActiveArea(null)}>Close</button>
       </div>
@@ -502,19 +502,67 @@ function PartnerInfoSection() {
   const [date, setDate] = useState(saved?.birth_date || '');
   const [time, setTime] = useState(saved?.birth_time || '');
   const [location, setLocation] = useState(saved?.birth_location || '');
+  const [locDisplay, setLocDisplay] = useState(saved?.birth_location_display || saved?.birth_location || '');
+  const [geoResults, setGeoResults] = useState([]);
+  const [geoFocus, setGeoFocus] = useState(false);
+  const geoTimer = useRef(null);
+
+  const locQuery = locDisplay.trim().toLowerCase();
+  const locCityMatches = locQuery.length >= 2
+    ? CITIES.filter(c => c.toLowerCase().includes(locQuery)).slice(0, 6)
+    : [];
+  useEffect(() => {
+    if (locQuery.length < 3) { setGeoResults([]); return; }
+    clearTimeout(geoTimer.current);
+    geoTimer.current = setTimeout(() => {
+      fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(locDisplay)}&limit=6&lang=en`)
+        .then(r => r.ok ? r.json() : { features: [] })
+        .then(data => {
+          setGeoResults((data.features || []).map(f => {
+            const p = f.properties || {};
+            const nm = p.name || '';
+            const city = p.city || p.town || p.village || '';
+            const state = p.state || '';
+            const country = p.country || '';
+            const label = (nm && nm !== city
+              ? [nm, city, state, country]
+              : [city, state, country]
+            ).filter(Boolean).join(', ').slice(0, 80);
+            return { label, value: label };
+          }));
+        })
+        .catch(() => setGeoResults([]));
+    }, 350);
+    return () => clearTimeout(geoTimer.current);
+  }, [locQuery]);
+  const partnerFiltered = [...locCityMatches.map(c => ({ label: c, value: c })), ...geoResults.filter(g => !locCityMatches.some(c => g.label.includes(c)))];
+
+  function selectGeoResult(item) {
+    setLocation(item.value);
+    setLocDisplay(item.label);
+    setGeoResults([]);
+    setGeoFocus(false);
+  }
 
   function save() {
     if (!date) return;
-    safeSet(PARTNER_KEY, JSON.stringify({ full_name: name.trim(), birth_date: date, birth_time: time || null, birth_location: location.trim() || null }));
+    safeSet(PARTNER_KEY, JSON.stringify({
+      full_name: name.trim(),
+      birth_date: date,
+      birth_time: time || null,
+      birth_location: location.trim() || null,
+      birth_location_display: locDisplay.trim() || null,
+    }));
     setEditing(false);
   }
   function clear() {
     safeSet(PARTNER_KEY, '');
-    setName(''); setDate(''); setTime(''); setLocation('');
+    setName(''); setDate(''); setTime(''); setLocation(''); setLocDisplay('');
     setEditing(false);
   }
 
   const dateStr = saved?.birth_date ? new Date(`${saved.birth_date}T12:00`).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'Not set';
+  const displayLoc = saved?.birth_location_display || saved?.birth_location || 'Not set';
 
   return (
     <div className="prof-group" style={{ marginTop: 24 }}>
@@ -524,7 +572,7 @@ function PartnerInfoSection() {
           <div className="prow"><span className="prow-l">Name</span><span>{saved?.full_name || 'Not set'}</span></div>
           <div className="prow"><span className="prow-l">Birth Date</span><span>{dateStr}</span></div>
           <div className="prow"><span className="prow-l">Birth Time</span><span>{saved?.birth_time || 'Not set'}</span></div>
-          <div className="prow"><span className="prow-l">Location</span><span>{saved?.birth_location || 'Not set'}</span></div>
+          <div className="prow"><span className="prow-l">Birth Location</span><span>{displayLoc}</span></div>
           <button type="button" className="prow prow--btn" onClick={() => setEditing(true)}>
             <span>{saved?.birth_date ? 'Edit Partner Info' : 'Add Partner Info'}</span><IconChevron />
           </button>
@@ -537,8 +585,22 @@ function PartnerInfoSection() {
           <input className="mm-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           <label className="mm-field-label">Birth Time (optional)</label>
           <input className="mm-input" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
-          <label className="mm-field-label">Birth Location (optional)</label>
-          <input className="mm-input" type="text" placeholder="e.g. New York, NY" value={location} onChange={(e) => setLocation(e.target.value)} />
+          <label className="mm-field-label">Where were they born?</label>
+          <div style={{ position: 'relative' }}>
+            <input className="mm-input" type="text" placeholder="Where were they born (Hospital name preferred)?" value={locDisplay}
+              onChange={(e) => { setLocDisplay(e.target.value); setLocation(e.target.value); }}
+              onFocus={() => setGeoFocus(true)}
+              onBlur={() => setTimeout(() => setGeoFocus(false), 200)} />
+            {geoFocus && partnerFiltered.length > 0 && (
+              <div className="partner-geo-dropdown">
+                {partnerFiltered.map((item, i) => (
+                  <button type="button" key={i} className="partner-geo-item" onMouseDown={() => selectGeoResult(item)}>
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
             <button type="button" className="btn-gold" style={{ flex: 1 }} onClick={save} disabled={!date}>Save</button>
             <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setEditing(false)}>Cancel</button>
@@ -546,6 +608,78 @@ function PartnerInfoSection() {
           {saved?.birth_date && <button type="button" className="btn-danger" style={{ marginTop: 10, width: '100%' }} onClick={clear}>Remove Partner</button>}
         </div>
       )}
+    </div>
+  );
+}
+
+function PatternDashboard() {
+  const history = useMemo(() => {
+    try { return JSON.parse(safeGet(ORACLE_HISTORY_KEY)) || []; } catch { return []; }
+  }, []);
+
+  const patterns = useMemo(() => {
+    if (!history || history.length < 2) return [];
+    const detected = [];
+
+    const domains = {};
+    history.forEach(h => {
+      const q = (h.q || '').toLowerCase();
+      if (q.includes('love') || q.includes('relationship') || q.includes('partner')) domains.love = (domains.love || 0) + 1;
+      if (q.includes('career') || q.includes('job') || q.includes('work') || q.includes('business')) domains.career = (domains.career || 0) + 1;
+      if (q.includes('health') || q.includes('energy') || q.includes('body')) domains.health = (domains.health || 0) + 1;
+      if (q.includes('money') || q.includes('invest') || q.includes('financial') || q.includes('save')) domains.wealth = (domains.wealth || 0) + 1;
+      if (q.includes('feel') || q.includes('lost') || q.includes('anxious') || q.includes('mood')) domains.emotional = (domains.emotional || 0) + 1;
+    });
+
+    const topDomain = Object.entries(domains).sort((a, b) => b[1] - a[1])[0];
+    if (topDomain && topDomain[1] >= 2) {
+      detected.push({
+        name: 'Domain Focus',
+        desc: `You've asked ${topDomain[1]} questions about ${topDomain[0]}. This area is clearly on your mind.`,
+      });
+    }
+
+    const timingWords = history.filter(h => /(when|timing|right time|should i wait|how long)/i.test(h.q));
+    if (timingWords.length >= 2) {
+      detected.push({
+        name: 'Timing Seeker',
+        desc: `${timingWords.length} of your questions focus on timing. You're looking for the right moment.`,
+      });
+    }
+
+    const confs = history.filter(h => h.confidence != null).map(h => h.confidence);
+    if (confs.length >= 3) {
+      const recent = confs.slice(0, 3).reduce((a, b) => a + b, 0) / 3;
+      const trend = recent > 0.7 ? 'rising' : recent < 0.4 ? 'falling' : 'steady';
+      detected.push({
+        name: `Confidence ${trend.charAt(0).toUpperCase() + trend.slice(1)}`,
+        desc: `Your recent answers average ${Math.round(recent * 100)}% confidence. The stars are ${trend === 'rising' ? 'speaking clearly' : trend === 'falling' ? 'uncertain' : 'steady'}.`,
+      });
+    }
+
+    const binaryCount = history.filter(h => /\bor\b|should i/i.test(h.q)).length;
+    if (binaryCount >= 2) {
+      detected.push({
+        name: 'Decision Maker',
+        desc: `${binaryCount} questions ask for a choice. You're actively weighing options.`,
+      });
+    }
+
+    return detected;
+  }, [history]);
+
+  if (patterns.length === 0) {
+    return <div className="v2-empty">Ask more Oracle questions to reveal your patterns.</div>;
+  }
+
+  return (
+    <div className="v2-pattern-section">
+      {patterns.map((p, i) => (
+        <div key={i} className="v2-pattern-card">
+          <div className="v2-pattern-name">{p.name}</div>
+          <div className="v2-pattern-desc">{p.desc}</div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -644,6 +778,13 @@ export function ProfileContent({ form, result, onEdit, onReset, theme, setTheme,
           </div>
         </div>
       )}
+
+      <div className="prof-group">
+        <div className="prof-group-title">Your Patterns</div>
+        <div className="prof-rows glass" style={{ padding: '10px 14px' }}>
+          <PatternDashboard />
+        </div>
+      </div>
 
       <div className="prof-group">
         <div className="prof-group-title">Birth Data</div>
@@ -754,8 +895,9 @@ export function ReadingsPlaceholder() {
 
 export function BottomNav({ active, onChange }) {
   const tabs = [
+    { id: 'today', label: 'Today', Icon: IconStar },
+    { id: 'systems', label: 'Systems', Icon: IconGrid },
     { id: 'oracle', label: 'Oracle', Icon: IconOracle },
-    { id: 'combined-systems', label: 'Combined', Icon: IconCombined },
     { id: 'games', label: 'Games', Icon: IconGames },
     { id: 'readings', label: 'Readings', Icon: IconReadings },
   ];
