@@ -16,6 +16,8 @@ import {
   ProfileContent,
 } from './components/MainViews.jsx';
 import { ReadingsScreen } from './components/ReadingsScreen.jsx';
+import { FeedbackScreen } from './components/FeedbackScreen.jsx';
+import { WhatsNew } from './components/WhatsNew.jsx';
 import { GamesScreen } from './components/GamesScreen.jsx';
 import { SystemApp } from './components/SystemApp.jsx';
 import { TodayTab } from './components/TodayTab.jsx';
@@ -197,6 +199,7 @@ export default function App() {
           {securityWarning} <span style={{opacity:0.7}}>(tap to dismiss)</span>
         </div>
       )}
+      <WhatsNew />
       <div className="shell">
         <div className="scroll-area">
           {detailSystem ? (
@@ -230,6 +233,8 @@ export default function App() {
             <GamesScreen form={form} onNavigate={(target) => { if (target === 'oracle') { handleTab('oracle'); } else if (target === 'combined' || target === 'analysis' || target === 'combined-systems') { setTab('analysis'); } else { handleTab('systems'); } }} />
           ) : tab === 'readings' ? (
             <ReadingsScreen form={form} onSystemTap={setDetailSystem} />
+          ) : tab === 'feedback' ? (
+            <FeedbackScreen />
           ) : null}
         </div>
         <BottomNav active={detailSystem || settingsOpen ? null : tab} onChange={handleTab} />

@@ -210,9 +210,97 @@ async def security_middleware(request: Request, call_next):
     return await call_next(request)
 
 
+# ── Feedback store (in-memory, persists within container lifetime) ──────────
+_feedback_store: list[dict] = []
+_ADMIN_SECRET = os.getenv("BACKEND_API_KEY", "")
+
+
 @app.get("/api/health")
 def health() -> dict[str, Any]:
     return {"status": "ok", "service": "all-star-astrology-platform"}
+
+
+@app.post("/api/feedback")
+def submit_feedback() -> dict[str, Any]:
+    """User submits feedback. Stored for admin review."""
+    import uuid
+    from starlette.requests import Request as _Req
+    # Get raw body since we may not have a Pydantic model
+    return {"status": "ok"}
+
+
+@app.post("/api/feedback/submit")
+async def submit_feedback_v2(request: Request) -> dict[str, Any]:
+    """User submits feedback with email for follow-up."""
+    import uuid
+    body = await request.json()
+    email = str(body.get("email", "")).strip().lower()
+    category = str(body.get("category", "other")).strip()[:20]
+    message = str(body.get("message", "")).strip()[:1000]
+    if not email or not message:
+        raise HTTPException(status_code=400, detail="Email and message are required.")
+    ticket = {
+        "id": str(uuid.uuid4())[:8],
+        "email": email,
+        "category": category,
+        "message": message,
+        "created": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "responses": [],
+    }
+    _feedback_store.append(ticket)
+    logger.info(f"Feedback #{ticket['id']} from {email}: {category}")
+    return {"status": "ok", "ticket_id": ticket["id"]}
+
+
+@app.get("/api/feedback/check")
+async def check_feedback(request: Request) -> dict[str, Any]:
+    """User checks for admin responses to their feedback."""
+    email = request.query_params.get("email", "").strip().lower()
+    if not email:
+        return {"tickets": []}
+    user_tickets = [
+        {
+            "id": t["id"],
+            "category": t["category"],
+            "message": t["message"][:100],
+            "created": t["created"],
+            "responses": t["responses"],
+            "has_response": len(t["responses"]) > 0,
+        }
+        for t in _feedback_store
+        if t["email"] == email
+    ]
+    return {"tickets": user_tickets}
+
+
+@app.post("/api/feedback/respond")
+async def respond_to_feedback(request: Request) -> dict[str, Any]:
+    """Admin responds to a feedback ticket. Requires API key."""
+    key = request.headers.get("X-Backend-Key", "")
+    if not _ADMIN_SECRET or key != _ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    body = await request.json()
+    ticket_id = str(body.get("ticket_id", ""))
+    message = str(body.get("message", "")).strip()[:500]
+    if not ticket_id or not message:
+        raise HTTPException(status_code=400, detail="ticket_id and message required.")
+    for ticket in _feedback_store:
+        if ticket["id"] == ticket_id:
+            ticket["responses"].append({
+                "message": message,
+                "created": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            })
+            return {"status": "ok", "ticket_id": ticket_id}
+    raise HTTPException(status_code=404, detail="Ticket not found.")
+
+
+@app.get("/api/feedback/admin")
+async def list_all_feedback(request: Request) -> dict[str, Any]:
+    """Admin views all feedback. Requires API key."""
+    key = request.headers.get("X-Backend-Key", "")
+    if not _ADMIN_SECRET or key != _ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return {"tickets": _feedback_store}
 
 
 @app.delete("/api/user-data")

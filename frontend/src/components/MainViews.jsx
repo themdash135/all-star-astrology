@@ -23,6 +23,7 @@ import {
   IconGrid,
   IconOracle,
   IconReadings,
+  IconFeedback,
   IconStar,
   IconUser,
   Toggle,
@@ -900,6 +901,7 @@ export function BottomNav({ active, onChange }) {
     { id: 'oracle', label: 'Oracle', Icon: IconOracle },
     { id: 'games', label: 'Games', Icon: IconGames },
     { id: 'readings', label: 'Readings', Icon: IconReadings },
+    { id: 'feedback', label: 'Feedback', Icon: IconFeedback },
   ];
 
   return (
