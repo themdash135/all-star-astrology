@@ -9,8 +9,6 @@ const CATEGORIES = [
   { id: 'other', label: 'Other', icon: '\u{1f4ac}' },
 ];
 
-const MAILTO = 'ernest@et-trust.com';
-
 export function FeedbackScreen() {
   const [category, setCategory] = useState('error');
   const [message, setMessage] = useState('');
@@ -31,11 +29,13 @@ export function FeedbackScreen() {
       .catch(() => {});
   }, [userKey, confirmed]);
 
+  const [submitError, setSubmitError] = useState('');
+
   const handleSubmit = async () => {
     if (!message.trim()) return;
     setSending(true);
+    setSubmitError('');
 
-    // Submit to backend
     try {
       await apiPost('feedback/submit', {
         email: userKey,
@@ -43,19 +43,13 @@ export function FeedbackScreen() {
         message: message.trim(),
         name: userName,
       });
-    } catch { /* fallback to email only */ }
-
-    // Also open email as backup
-    const cat = CATEGORIES.find(c => c.id === category);
-    const subject = encodeURIComponent(`[All Star Astrology] ${cat?.label || 'Feedback'} from ${userName}`);
-    const body = encodeURIComponent(
-      `From: ${userName}\nCategory: ${cat?.label}\n\n${message.trim()}`
-    );
-    window.open(`mailto:${MAILTO}?subject=${subject}&body=${body}`, '_self');
-
-    setSending(false);
-    setConfirmed(true);
-    setMessage('');
+      setConfirmed(true);
+      setMessage('');
+    } catch {
+      setSubmitError('Could not send feedback. Please check your connection and try again.');
+    } finally {
+      setSending(false);
+    }
   };
 
   const unreadCount = tickets.filter(t => t.has_response).length;
@@ -143,6 +137,8 @@ export function FeedbackScreen() {
         />
         <div className="lg-fb-count">{message.length}<span>/1000</span></div>
       </div>
+
+      {submitError && <div className="ob-err" role="alert" style={{ marginBottom: 8 }}>{submitError}</div>}
 
       <button
         type="button"

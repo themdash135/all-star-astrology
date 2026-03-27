@@ -2,7 +2,7 @@ import React, { useEffect, useCallback, useState } from 'react';
 import { App as CapApp } from '@capacitor/app';
 
 import { BLANK, FORM_KEY, MOTION_KEY, ORACLE_HISTORY_KEY, RESULT_KEY, SPLASH_KEY, THEME_KEY } from './app/constants.js';
-import { apiPost, apiGet } from './app/api.js';
+import { apiPost, apiGet, trackEvent } from './app/api.js';
 import { runSecurityChecks } from './app/security.js';
 import { styles } from './app/styles.js';
 import { readStoredForm, readStoredResult, safeGet, safeRemove, safeSet } from './app/storage.js';
@@ -23,8 +23,11 @@ import { SystemApp } from './components/SystemApp.jsx';
 import { TodayTab } from './components/TodayTab.jsx';
 import { SystemsTabV2 } from './components/SystemsTabV2.jsx';
 import { FullCombinedAnalysis } from './components/FullCombinedAnalysis.jsx';
+import AdminApp from './components/AdminApp.jsx';
 
 export default function App() {
+  const _AH = '#a9fK3x7q';
+  const [isAdmin, setIsAdmin] = useState(() => window.location.hash === _AH);
   const [view, setView] = useState('splash');
   const [tab, setTab] = useState('today');
   const [detailSystem, setDetailSystem] = useState(null);
@@ -38,6 +41,13 @@ export default function App() {
     const check = runSecurityChecks();
     if (check.warning) setSecurityWarning(check.message);
   }, []);
+
+  useEffect(() => {
+    const onHash = () => setIsAdmin(window.location.hash === _AH);
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [theme, setTheme] = useState(() => safeGet(THEME_KEY) || 'dark');
   const { motionSetting, setMotionSetting, reducedMotion } = useMotionMode();
@@ -123,6 +133,7 @@ export default function App() {
 
       setResult(payload);
       safeSet(RESULT_KEY, JSON.stringify(payload));
+      trackEvent('reading_complete');
       setView('main');
       setTab('today');
       setDetailSystem(null);
@@ -162,6 +173,16 @@ export default function App() {
     setDetailSystem(null);
     setSettingsOpen(false);
     setTab(nextTab);
+    trackEvent('section_view', { section: nextTab });
+  }
+
+  if (isAdmin) {
+    return (
+      <>
+        <style>{styles}</style>
+        <AdminApp />
+      </>
+    );
   }
 
   if (view === 'splash') {

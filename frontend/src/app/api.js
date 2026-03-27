@@ -69,3 +69,11 @@ export async function apiPost(endpoint, body) {
     return fallbackPost(endpoint, body);
   }
 }
+
+export function trackEvent(event, data = {}) {
+  fetch('/api/admin/analytics/event', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ event, data }),
+  }).catch(() => {});
+}

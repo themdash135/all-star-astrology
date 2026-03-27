@@ -4,6 +4,7 @@ import datetime
 import json
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Any, Literal, Optional
 
@@ -17,6 +18,7 @@ from slowapi.util import get_remote_address
 
 logger = logging.getLogger(__name__)
 
+from backend import admin as admin_module
 from backend.engines import bazi, chinese, combined, daily, gematria, games, kabbalistic, numerology, persian, vedic, western
 from backend.engines.common import CalculationError, build_context
 from backend.engines.oracle import compose_response as oracle_compose
@@ -166,7 +168,7 @@ app.add_middleware(
 )
 
 
-_MAX_REQUEST_AGE_SECONDS = 30
+_MAX_REQUEST_AGE_SECONDS = 120
 _BACKEND_API_KEY = os.getenv("BACKEND_API_KEY", "")
 
 
@@ -216,6 +218,28 @@ _feedback_store: list[dict] = []
 _ADMIN_SECRET = os.getenv("BACKEND_API_KEY", "")
 
 
+_GOOGLE_PLACES_KEY = os.getenv("GOOGLE_PLACES_API_KEY", "AIzaSyCewcS7wNiDXGyWrjqjkHfyZoY0I3OhzfY")
+
+
+@app.get("/api/places/autocomplete")
+async def places_autocomplete(request: Request) -> dict[str, Any]:
+    """Proxy Google Places Autocomplete to avoid CORS issues."""
+    import httpx
+    query = request.query_params.get("input", "").strip()
+    if not query or len(query) < 2:
+        return {"predictions": []}
+    url = (
+        f"https://maps.googleapis.com/maps/api/place/autocomplete/json"
+        f"?input={query}&types=establishment%7Cgeocode&key={_GOOGLE_PLACES_KEY}"
+    )
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.get(url)
+            return resp.json()
+    except Exception:
+        return {"predictions": []}
+
+
 @app.get("/api/health")
 def health() -> dict[str, Any]:
     return {"status": "ok", "service": "all-star-astrology-platform"}
@@ -228,6 +252,42 @@ def submit_feedback() -> dict[str, Any]:
     from starlette.requests import Request as _Req
     # Get raw body since we may not have a Pydantic model
     return {"status": "ok"}
+
+
+_FEEDBACK_EMAIL_TO = os.getenv("FEEDBACK_EMAIL_TO", "")
+_SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
+_SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+_SMTP_USER = os.getenv("SMTP_USER", "")
+_SMTP_PASS = os.getenv("SMTP_PASS", "")
+
+
+def _send_feedback_email(ticket: dict, user_name: str) -> None:
+    """Fire-and-forget email notification for new feedback."""
+    if not (_FEEDBACK_EMAIL_TO and _SMTP_USER and _SMTP_PASS):
+        logger.debug("Feedback email skipped — SMTP not configured")
+        return
+    import smtplib
+    from email.mime.text import MIMEText
+    try:
+        subject = f"[All Star Astrology] {ticket['category'].title()} from {user_name or ticket['email']}"
+        body = (
+            f"Ticket: #{ticket['id']}\n"
+            f"From: {user_name} ({ticket['email']})\n"
+            f"Category: {ticket['category']}\n"
+            f"Time: {ticket['created']}\n\n"
+            f"{ticket['message']}"
+        )
+        msg = MIMEText(body, "plain", "utf-8")
+        msg["Subject"] = subject
+        msg["From"] = _SMTP_USER
+        msg["To"] = _FEEDBACK_EMAIL_TO
+        with smtplib.SMTP(_SMTP_HOST, _SMTP_PORT, timeout=10) as srv:
+            srv.starttls()
+            srv.login(_SMTP_USER, _SMTP_PASS)
+            srv.send_message(msg)
+        logger.info(f"Feedback email sent for #{ticket['id']}")
+    except Exception as exc:
+        logger.warning(f"Feedback email failed: {exc}")
 
 
 @app.post("/api/feedback/submit")
@@ -248,8 +308,13 @@ async def submit_feedback_v2(request: Request) -> dict[str, Any]:
         "created": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "responses": [],
     }
+    name = str(body.get("name", "")).strip()[:100]
     _feedback_store.append(ticket)
     logger.info(f"Feedback #{ticket['id']} from {email}: {category}")
+
+    # Auto-email notification to admin
+    _send_feedback_email(ticket, name)
+
     return {"status": "ok", "ticket_id": ticket["id"]}
 
 
@@ -322,6 +387,7 @@ def delete_user_data() -> dict[str, Any]:
 
 @app.post("/api/reading")
 def reading(payload: ReadingRequest) -> dict[str, Any]:
+    t0 = time.perf_counter()
     try:
         context = build_context(payload)
         systems = {
@@ -336,7 +402,7 @@ def reading(payload: ReadingRequest) -> dict[str, Any]:
         }
         merged = combined.calculate(context, systems)
         daily_content = daily.calculate(context, systems, merged)
-        return {
+        result = {
             "meta": {
                 "birth_date": context["birth_date"].isoformat(),
                 "birth_time": context["birth_time"].isoformat(),
@@ -352,9 +418,14 @@ def reading(payload: ReadingRequest) -> dict[str, Any]:
             "combined": merged,
             "daily": daily_content,
         }
+        duration_ms = round((time.perf_counter() - t0) * 1000, 1)
+        admin_module.save_reading(result, duration_ms=duration_ms)
+        return result
     except CalculationError as exc:
+        admin_module.log_error("/api/reading", str(exc))
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:  # pragma: no cover - defensive boundary for API consumers.
+        admin_module.log_error("/api/reading", str(exc))
         logger.exception("Unexpected error in /api/reading")
         raise HTTPException(status_code=500, detail="An unexpected error occurred.") from exc
 
@@ -428,6 +499,7 @@ def _cross_system_compatibility(
 @app.post("/api/compatibility")
 def compatibility(payload: CompatibilityRequest) -> dict[str, Any]:
     """Generate a full neuro-symbolic compatibility analysis between two people."""
+    t0 = time.perf_counter()
     try:
         user_reading = _generate_reading(payload.user)
         partner_reading = _generate_reading(payload.partner)
@@ -439,10 +511,14 @@ def compatibility(payload: CompatibilityRequest) -> dict[str, Any]:
         )
         analysis["user_meta"] = user_reading["meta"]
         analysis["partner_meta"] = partner_reading["meta"]
+        duration_ms = round((time.perf_counter() - t0) * 1000, 1)
+        admin_module.save_compatibility(analysis, duration_ms=duration_ms)
         return analysis
     except CalculationError as exc:
+        admin_module.log_error("/api/compatibility", str(exc))
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
+        admin_module.log_error("/api/compatibility", str(exc))
         logger.exception("Unexpected error in /api/compatibility")
         raise HTTPException(status_code=500, detail="An unexpected error occurred.") from exc
 
@@ -867,6 +943,70 @@ def v2_debate(payload: V2DebateRequest) -> dict[str, Any]:
     except Exception as exc:
         logger.exception("Unexpected error in /api/v2/debate")
         raise HTTPException(status_code=500, detail="An unexpected error occurred.") from exc
+
+
+# ── Admin API Endpoints ──────────────────────────────────────────
+
+
+@app.get("/api/admin/health")
+async def admin_health(request: Request) -> dict:
+    key = request.headers.get("X-Backend-Key", "")
+    if not _ADMIN_SECRET or key != _ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return admin_module.get_health()
+
+
+@app.get("/api/admin/quality")
+async def admin_quality(request: Request) -> dict:
+    key = request.headers.get("X-Backend-Key", "")
+    if not _ADMIN_SECRET or key != _ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    limit = int(request.query_params.get("limit", "50"))
+    return admin_module.get_quality_summary(limit=limit)
+
+
+@app.get("/api/admin/analytics")
+async def admin_analytics(request: Request) -> dict:
+    key = request.headers.get("X-Backend-Key", "")
+    if not _ADMIN_SECRET or key != _ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    hours = request.query_params.get("hours")
+    hours_int = int(hours) if hours else None
+    return admin_module.get_analytics(hours=hours_int)
+
+
+@app.get("/api/admin/sessions")
+async def admin_sessions(request: Request) -> dict:
+    key = request.headers.get("X-Backend-Key", "")
+    if not _ADMIN_SECRET or key != _ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    session_type = request.query_params.get("type")
+    limit = int(request.query_params.get("limit", "50"))
+    offset = int(request.query_params.get("offset", "0"))
+    return admin_module.list_sessions(session_type=session_type, limit=limit, offset=offset)
+
+
+@app.get("/api/admin/sessions/{session_id}")
+async def admin_session_detail(session_id: str, request: Request) -> dict:
+    key = request.headers.get("X-Backend-Key", "")
+    if not _ADMIN_SECRET or key != _ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    result = admin_module.get_session(session_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return result
+
+
+@app.post("/api/admin/analytics/event")
+async def admin_log_event(request: Request) -> dict:
+    """Frontend event tracking endpoint — does NOT require admin key."""
+    body = await request.json()
+    event = str(body.get("event", "")).strip()[:50]
+    data = body.get("data", {})
+    if not event:
+        raise HTTPException(status_code=400, detail="Event name required")
+    admin_module.log_event(event, data=data)
+    return {"status": "ok"}
 
 
 FRONTEND_DIST = Path(__file__).resolve().parents[1] / "frontend" / "dist"
