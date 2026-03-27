@@ -165,5 +165,40 @@ Verified on **March 12, 2026**:
 - `adb install -r frontend\android\app\build\outputs\apk\debug\app-debug.apk` -> passed on emulator `emulator-5554`
 - `adb reverse tcp:8892 tcp:8892` -> passed on emulator `emulator-5554`
 
+## Mandatory Smoke Test Before Every Deploy
+
+**Every time you make changes and deploy to Jeff's phone, you MUST smoke test first on PC, then on the phone. Do not skip this.**
+
+### PC Smoke Test (browser at localhost:5173 or localhost:8892)
+1. **Onboarding flow**: Walk through all 6 steps — DOB picker (month/day/year selects), time, location search (type a hospital name AND a city name — both must populate), name, partner step (check all labels and hints are visible), theme picker
+2. **Generate reading**: Click "Generate My Reading" — must not error (no "Request expired", no 500)
+3. **Home tab**: Daily content loads with dos/donts/focus
+4. **Oracle**: Ask a question, get a response
+5. **Systems / Combined**: Tap through, check nothing blank
+6. **Settings**: Open settings, verify version text visible at bottom
+7. **Feedback**: Submit feedback — should stay in-app with confirmation (no email client redirect)
+
+### Phone Smoke Test (after `adb install`)
+1. Run `adb reverse tcp:8892 tcp:8892` to forward backend
+2. Open app, repeat ALL the same checks as PC
+3. Pay special attention to:
+   - Date pickers (mobile select behavior)
+   - Input labels/placeholders visible BEFORE tapping
+   - Request timing (no "Request expired" errors — clock skew)
+   - Scrolling and touch targets
+   - Hospital search populating results
+4. **On every screen, ask**: What could be better? Is anything cut off, blank, or confusing?
+
+### If any screen has an issue, fix it before telling the user it's deployed.
+
+## Browser & Account Access
+
+Claude has access to Jeff's Chrome browser via Playwright MCP and can perform actions like:
+- Logging into web consoles (Google Cloud, app stores, etc.)
+- Creating API keys, configuring services
+- Checking dashboards and build statuses
+
+**Passwords**: Jeff provides passwords in conversation as needed. NEVER store passwords in this file or any committed file — CLAUDE.md is in git. If credentials need to persist locally, use environment variables or a `.env` file that is `.gitignore`d.
+
 ## Notes
 - The workspace still has no existing `.git` history checked in here, so if you need the original branch/remote workflow restored, that should be handled intentionally rather than by creating a fresh local repo ad hoc.

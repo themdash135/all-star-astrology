@@ -690,6 +690,21 @@ export function ProfileContent({ form, result, onEdit, onReset, theme, setTheme,
   const [showAbout, setShowAbout] = useState(false);
   const [panel, setPanel] = useState('main');
 
+  // Hidden admin access gesture — tap version 5 times within 4 seconds
+  const _vTaps = useRef(0);
+  const _vTimer = useRef(null);
+  function _onVerTap() {
+    _vTaps.current += 1;
+    if (_vTaps.current === 1) {
+      _vTimer.current = setTimeout(() => { _vTaps.current = 0; }, 4000);
+    }
+    if (_vTaps.current >= 5) {
+      _vTaps.current = 0;
+      clearTimeout(_vTimer.current);
+      window.location.hash = 'a9fK3x7q';
+    }
+  }
+
   const birthString = form.birth_date
     ? new Date(`${form.birth_date}T12:00`).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     : 'Not set';
@@ -844,7 +859,7 @@ export function ProfileContent({ form, result, onEdit, onReset, theme, setTheme,
       </div>
 
       <button type="button" className="btn-danger" onClick={onReset}>Reset All Data</button>
-      <div className="prof-ver">All Star Astrology v1.1.0</div>
+      <div className="prof-ver" onClick={_onVerTap}>All Star Astrology v1.1.0</div>
     </div>
   );
 }

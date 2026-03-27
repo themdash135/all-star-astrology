@@ -12,3 +12,4 @@ annotated-types==0.7.0
 lunardate==0.2.2
 slowapi==0.1.9
 limits==5.8.0
+httpx==0.28.1
