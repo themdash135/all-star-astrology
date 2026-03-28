@@ -1,4 +1,6 @@
 import { useState, useMemo } from 'react';
+import { SystemGamesTab } from './SystemGamesTab.jsx';
+import { SYSTEM_GAMES } from '../app/system-games-config.js';
 
 const SYSTEMS = [
   { id: 'western', name: 'Western', icon: '\u2609', color: 'var(--sys-western)' },
@@ -157,8 +159,9 @@ function DataGroup({ label, rows, defaultOpen }) {
   );
 }
 
-function SystemDetail({ sys, data, onBack, onNav, navLabel, onAskOracle }) {
+function SystemDetail({ sys, data, result, form, onBack, onNav, navLabel, onAskOracle }) {
   const [subtab, setSubtab] = useState('reading');
+  const gameCount = (SYSTEM_GAMES[sys.id] || []).length;
   const dataRows = useMemo(() => flattenData(data), [data]);
   const dataGrouped = useMemo(() => groupDataRows(dataRows), [dataRows]);
 
@@ -214,6 +217,14 @@ function SystemDetail({ sys, data, onBack, onNav, navLabel, onAskOracle }) {
               {t}
             </button>
           ))}
+          {gameCount > 0 && (
+            <button
+              className={`v2-sys-tab ${subtab === 'games' ? 'active' : ''}`}
+              onClick={() => setSubtab('games')}
+            >
+              Games <span style={{ display: 'inline-block', background: 'var(--accent, #D4A574)', color: '#000', borderRadius: 10, fontSize: 11, fontWeight: 700, padding: '1px 6px', marginLeft: 4, verticalAlign: 'middle' }}>{gameCount}</span>
+            </button>
+          )}
         </div>
 
         {subtab === 'reading' && (
@@ -368,12 +379,18 @@ function SystemDetail({ sys, data, onBack, onNav, navLabel, onAskOracle }) {
             )}
           </div>
         )}
+
+        {subtab === 'games' && (
+          <div className="fade-in">
+            <SystemGamesTab systemId={sys.id} result={result} form={form} />
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-export function SystemsTabV2({ result, onAskOracle }) {
+export function SystemsTabV2({ result, form, onAskOracle }) {
   const [selected, setSelected] = useState(null);
   const overallScore = useMemo(() => getCombinedScore(result), [result]);
 
@@ -384,6 +401,8 @@ export function SystemsTabV2({ result, onAskOracle }) {
       <SystemDetail
         sys={sys}
         data={data}
+        result={result}
+        form={form}
         onBack={() => setSelected(null)}
         navLabel
         onAskOracle={onAskOracle}
@@ -422,6 +441,22 @@ export function SystemsTabV2({ result, onAskOracle }) {
           </div>
         );
       })}
+
+      <div style={{
+        margin: '24px 0 16px',
+        padding: '16px 20px',
+        border: '1px solid #D4A574',
+        borderRadius: 'var(--v2-r-lg, 12px)',
+        background: 'var(--surface)',
+        textAlign: 'center',
+      }}>
+        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>
+          27 Interactive Experiences
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--text-secondary, #999)' }}>
+          Explore games inside each system
+        </div>
+      </div>
     </div>
   );
 }

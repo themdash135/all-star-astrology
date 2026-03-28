@@ -1,10 +1,28 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 
 import { SYSTEM_GAMES, INPUT_LABELS, GAME_TYPE_LABELS } from '../app/system-games-config.js';
 import { playSystemGame } from '../app/system-games-engine.js';
 import { IconBack } from './common.jsx';
 
 const REVEAL_MS = 2800;
+const PLAYED_GAMES_KEY = 'allstar-played-games';
+
+function getPlayedGames() {
+  try {
+    const raw = localStorage.getItem(PLAYED_GAMES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function markGamePlayed(gameId) {
+  try {
+    const played = getPlayedGames();
+    if (!played.includes(gameId)) {
+      played.push(gameId);
+      localStorage.setItem(PLAYED_GAMES_KEY, JSON.stringify(played));
+    }
+  } catch { /* ignore */ }
+}
 
 /* ═══════════════════════════════════════════════════════
    SystemGamesTab — Games page inside each system detail view.
@@ -18,8 +36,13 @@ export function SystemGamesTab({ systemId, result, form }) {
   const [pendingResult, setPendingResult] = useState(null);
   const [gameResult, setGameResult] = useState(null);
   const [error, setError] = useState('');
+  const [shareMsg, setShareMsg] = useState('');
 
   const games = SYSTEM_GAMES[systemId] || [];
+  const playedGames = getPlayedGames();
+
+  // Find first unplayed game for "Try This" badge
+  const firstUnplayedId = games.find((g) => !playedGames.includes(g.id))?.id || null;
 
   // Reset when system changes
   useEffect(() => {
@@ -29,6 +52,7 @@ export function SystemGamesTab({ systemId, result, form }) {
     setError('');
     setInputs({});
     setRevealing(false);
+    setShareMsg('');
   }, [systemId]);
 
   function openGame(game) {
@@ -47,6 +71,7 @@ export function SystemGamesTab({ systemId, result, form }) {
     setPendingResult(null);
     setError('');
     setRevealing(false);
+    setShareMsg('');
   }
 
   function goBack() {
@@ -56,6 +81,7 @@ export function SystemGamesTab({ systemId, result, form }) {
     setError('');
     setInputs({});
     setRevealing(false);
+    setShareMsg('');
   }
 
   function play() {
@@ -68,9 +94,26 @@ export function SystemGamesTab({ systemId, result, form }) {
       setError(data.error);
       return;
     }
+    markGamePlayed(activeGame.id);
     setPendingResult(data);
     setRevealing(true);
   }
+
+  const handleShare = useCallback(async () => {
+    if (!gameResult || !activeGame) return;
+    const text = `${activeGame.title}: ${gameResult.headline} \u2014 All Star Astrology`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ text });
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(text);
+        setShareMsg('Copied!');
+        setTimeout(() => setShareMsg(''), 2000);
+      }
+    } catch {
+      // user cancelled share dialog
+    }
+  }, [gameResult, activeGame]);
 
   // Reveal timer
   useEffect(() => {
@@ -103,11 +146,15 @@ export function SystemGamesTab({ systemId, result, form }) {
             <button
               type="button"
               key={game.id}
-              className="sg-card glass stagger"
+              className={`sg-card sg-card-${game.gameType} glass stagger`}
               style={{ animationDelay: `${i * 0.08}s` }}
               onClick={() => openGame(game)}
             >
               <div className="sg-card-glow" aria-hidden="true" />
+              {game.id === firstUnplayedId && (
+                <span className="sg-card-badge">Try This</span>
+              )}
+              <span className={`sg-card-watermark sg-wm-${game.gameType}`} aria-hidden="true" />
               <span className="sg-card-icon">{game.icon}</span>
               <span className="sg-card-title serif">{game.title}</span>
               <span className="sg-card-sub">{game.subtitle}</span>
@@ -144,7 +191,7 @@ export function SystemGamesTab({ systemId, result, form }) {
       {/* Reveal animation */}
       {revealing && pendingResult && (
         <div className="sg-reveal-stage">
-          <MysticReveal type={pendingResult.type} headline={pendingResult.headline} />
+          <RevealAnimation type={pendingResult.type} headline={pendingResult.headline} />
         </div>
       )}
 
@@ -179,7 +226,7 @@ export function SystemGamesTab({ systemId, result, form }) {
             </div>
           )}
           <button type="button" className="sg-action-btn" onClick={play} disabled={!canPlay}>
-            <span className="sg-action-text">Begin</span>
+            <span className="sg-action-text">{activeGame.action || 'Begin'}</span>
           </button>
           {error && <p className="sg-error">{error}</p>}
         </div>
@@ -194,8 +241,11 @@ export function SystemGamesTab({ systemId, result, form }) {
           {gameResult.type === 'oracle' && <OracleResult data={gameResult} />}
           {gameResult.type === 'explorer' && <ExplorerResult data={gameResult} />}
 
-          <button type="button" className="sg-again" onClick={() => { setGameResult(null); setError(''); }}>
+          <button type="button" className="sg-again" onClick={() => { setGameResult(null); setError(''); setShareMsg(''); }}>
             Play Again
+          </button>
+          <button type="button" className="sg-share" onClick={handleShare}>
+            {shareMsg || 'Share Result'}
           </button>
         </div>
       )}
@@ -205,10 +255,85 @@ export function SystemGamesTab({ systemId, result, form }) {
 
 
 /* ═══════════════════════════════════════════════════════
-   Reveal Animation — mystic orb with pulsing headline
+   RevealAnimation — type-specific reveal animations
    ═══════════════════════════════════════════════════════ */
-function MysticReveal({ type, headline }) {
+function RevealAnimation({ type, headline }) {
   const typeLabel = GAME_TYPE_LABELS[type] || 'Reading';
+
+  if (type === 'identity') {
+    return (
+      <div className="sg-mystic-reveal sg-reveal-identity">
+        <div className="sg-rv-identity-stage">
+          {[...Array(8)].map((_, i) => (
+            <span key={i} className="sg-rv-particle" style={{ '--i': i }} />
+          ))}
+          <div className="sg-rv-identity-glow" />
+        </div>
+        <p className="sg-reveal-type">{typeLabel}</p>
+        <p className="sg-reveal-headline serif">{headline || 'The stars align\u2026'}</p>
+      </div>
+    );
+  }
+
+  if (type === 'compatibility') {
+    return (
+      <div className="sg-mystic-reveal sg-reveal-compat">
+        <div className="sg-rv-compat-stage">
+          <div className="sg-rv-orb sg-rv-orb-a" />
+          <div className="sg-rv-orb sg-rv-orb-b" />
+          <div className="sg-rv-merge-flash" />
+        </div>
+        <p className="sg-reveal-type">{typeLabel}</p>
+        <p className="sg-reveal-headline serif">{headline || 'The stars align\u2026'}</p>
+      </div>
+    );
+  }
+
+  if (type === 'timeline') {
+    return (
+      <div className="sg-mystic-reveal sg-reveal-timeline">
+        <div className="sg-rv-tl-stage">
+          <div className="sg-rv-tl-line" />
+          {[...Array(5)].map((_, i) => (
+            <span key={i} className="sg-rv-tl-node" style={{ '--i': i }} />
+          ))}
+        </div>
+        <p className="sg-reveal-type">{typeLabel}</p>
+        <p className="sg-reveal-headline serif">{headline || 'The stars align\u2026'}</p>
+      </div>
+    );
+  }
+
+  if (type === 'oracle') {
+    return (
+      <div className="sg-mystic-reveal sg-reveal-oracle">
+        <div className="sg-rv-oracle-stage">
+          <div className="sg-rv-crystal" />
+          <div className="sg-rv-mist sg-rv-mist-1" />
+          <div className="sg-rv-mist sg-rv-mist-2" />
+          <div className="sg-rv-mist sg-rv-mist-3" />
+        </div>
+        <p className="sg-reveal-type">{typeLabel}</p>
+        <p className="sg-reveal-headline serif">{headline || 'The stars align\u2026'}</p>
+      </div>
+    );
+  }
+
+  if (type === 'explorer') {
+    return (
+      <div className="sg-mystic-reveal sg-reveal-explorer">
+        <div className="sg-rv-explorer-stage">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="sg-rv-layer" style={{ '--i': i }} />
+          ))}
+        </div>
+        <p className="sg-reveal-type">{typeLabel}</p>
+        <p className="sg-reveal-headline serif">{headline || 'The stars align\u2026'}</p>
+      </div>
+    );
+  }
+
+  // fallback: original orb
   return (
     <div className="sg-mystic-reveal">
       <div className="sg-reveal-orb">

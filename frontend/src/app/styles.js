@@ -3238,6 +3238,212 @@ input:focus-visible,
 .sg-exp-meaning { padding:14px; border-radius:12px; }
 .sg-exp-meaning p { font-size:.82rem; color:var(--text); margin:0; line-height:1.5; }
 
+/* ── Share button ── */
+.sg-share {
+  width:100%; text-align:center; padding:12px; margin-top:0;
+  font-size:.78rem; color:var(--gold); letter-spacing:.08em;
+  text-transform:uppercase; transition:color .2s, background .2s;
+  background:rgba(212,165,116,.08); border:1px solid rgba(212,165,116,.2);
+  border-radius:10px; cursor:pointer;
+}
+.sg-share:active { background:rgba(212,165,116,.18); }
+
+/* ── Card type accents ── */
+.sg-card-compatibility { border-left:3px solid rgba(244,114,182,.5); }
+.sg-card-oracle { border-left:3px solid rgba(168,85,247,.5); }
+.sg-card-timeline { border-left:3px solid rgba(96,165,250,.5); }
+.sg-card-identity { border-left:3px solid rgba(250,204,21,.5); }
+.sg-card-explorer { border-left:3px solid rgba(74,222,128,.5); }
+
+/* ── Card watermarks ── */
+.sg-card-watermark {
+  position:absolute; bottom:4px; right:6px;
+  font-size:2.2rem; opacity:.06; pointer-events:none;
+  line-height:1;
+}
+.sg-wm-compatibility::after { content:'\u2665'; }
+.sg-wm-oracle::after { content:'\uD83D\uDD2E'; }
+.sg-wm-timeline::after { content:'\u29D7'; }
+.sg-wm-identity::after { content:'\u2605'; }
+.sg-wm-explorer::after { content:'\u2316'; }
+
+/* ── Try This badge ── */
+.sg-card-badge {
+  position:absolute; top:6px; right:6px; z-index:2;
+  font-size:.52rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+  color:#080D1A; background:var(--gold);
+  padding:2px 7px; border-radius:999px;
+  animation:sgBadgePulse 2s ease-in-out infinite;
+}
+@keyframes sgBadgePulse {
+  0%,100% { opacity:1; transform:scale(1); }
+  50% { opacity:.85; transform:scale(1.06); }
+}
+
+/* ═══════════════════════════════════════════════════════
+   Type-specific reveal animations
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Identity: swirling particles converging ── */
+.sg-rv-identity-stage {
+  position:relative; width:120px; height:120px;
+}
+.sg-rv-particle {
+  position:absolute; width:8px; height:8px; border-radius:50%;
+  background:var(--gold);
+  top:50%; left:50%;
+  animation:sgParticleSwirl 2.4s ease-in-out infinite;
+  animation-delay:calc(var(--i) * 0.3s);
+}
+@keyframes sgParticleSwirl {
+  0% {
+    transform:rotate(calc(var(--i) * 45deg)) translateX(50px) scale(1);
+    opacity:.3;
+  }
+  70% {
+    transform:rotate(calc(var(--i) * 45deg + 270deg)) translateX(6px) scale(.6);
+    opacity:1;
+  }
+  100% {
+    transform:rotate(calc(var(--i) * 45deg + 360deg)) translateX(50px) scale(1);
+    opacity:.3;
+  }
+}
+.sg-rv-identity-glow {
+  position:absolute; inset:30px; border-radius:50%;
+  background:radial-gradient(circle, var(--gold), rgba(250,204,21,.15));
+  animation:sgIdentityGlow 2.4s ease-in-out infinite;
+}
+@keyframes sgIdentityGlow {
+  0%,100% { transform:scale(.6); opacity:.2; }
+  70% { transform:scale(1.1); opacity:.9; }
+}
+
+/* ── Compatibility: two orbs merging ── */
+.sg-rv-compat-stage {
+  position:relative; width:140px; height:100px;
+}
+.sg-rv-orb {
+  position:absolute; width:36px; height:36px; border-radius:50%; top:32px;
+}
+.sg-rv-orb-a {
+  background:radial-gradient(circle, #F472B6, rgba(244,114,182,.2));
+  left:10px;
+  animation:sgOrbMergeA 2.6s ease-in-out infinite;
+}
+.sg-rv-orb-b {
+  background:radial-gradient(circle, #60A5FA, rgba(96,165,250,.2));
+  right:10px;
+  animation:sgOrbMergeB 2.6s ease-in-out infinite;
+}
+@keyframes sgOrbMergeA {
+  0%,100% { transform:translateX(0) scale(1); opacity:.8; }
+  50% { transform:translateX(30px) scale(.75); opacity:1; }
+}
+@keyframes sgOrbMergeB {
+  0%,100% { transform:translateX(0) scale(1); opacity:.8; }
+  50% { transform:translateX(-30px) scale(.75); opacity:1; }
+}
+.sg-rv-merge-flash {
+  position:absolute; left:50%; top:50%; width:20px; height:20px;
+  border-radius:50%; transform:translate(-50%,-50%);
+  background:radial-gradient(circle, #fff, transparent 70%);
+  animation:sgMergeFlash 2.6s ease-in-out infinite;
+}
+@keyframes sgMergeFlash {
+  0%,30%,100% { opacity:0; transform:translate(-50%,-50%) scale(.5); }
+  50% { opacity:.9; transform:translate(-50%,-50%) scale(2.5); }
+  70% { opacity:0; transform:translate(-50%,-50%) scale(3); }
+}
+
+/* ── Timeline: horizontal line drawing with nodes ── */
+.sg-rv-tl-stage {
+  position:relative; width:200px; height:60px;
+  display:flex; align-items:center; justify-content:center;
+}
+.sg-rv-tl-line {
+  position:absolute; left:10px; right:10px; top:50%; height:2px;
+  background:var(--gold); transform-origin:left;
+  animation:sgTlLineDraw 2s ease-out forwards;
+}
+@keyframes sgTlLineDraw {
+  from { transform:scaleX(0); opacity:.3; }
+  to { transform:scaleX(1); opacity:1; }
+}
+.sg-rv-tl-node {
+  position:absolute; width:10px; height:10px; border-radius:50%;
+  background:var(--gold); top:50%; transform:translateY(-50%) scale(0);
+  animation:sgTlNodePop .4s ease-out forwards;
+  animation-delay:calc(0.4s + var(--i) * 0.35s);
+}
+.sg-rv-tl-node:nth-child(2) { left:10px; }
+.sg-rv-tl-node:nth-child(3) { left:calc(25% + 2px); }
+.sg-rv-tl-node:nth-child(4) { left:50%; transform:translateX(-50%) translateY(-50%) scale(0); }
+.sg-rv-tl-node:nth-child(5) { left:calc(75% - 2px); }
+.sg-rv-tl-node:nth-child(6) { right:10px; }
+@keyframes sgTlNodePop {
+  0% { transform:translateY(-50%) scale(0); }
+  60% { transform:translateY(-50%) scale(1.4); }
+  100% { transform:translateY(-50%) scale(1); }
+}
+
+/* ── Oracle: crystal ball with mist ── */
+.sg-rv-oracle-stage {
+  position:relative; width:100px; height:100px;
+}
+.sg-rv-crystal {
+  position:absolute; inset:15px; border-radius:50%;
+  background:radial-gradient(circle at 35% 35%, rgba(168,85,247,.6), rgba(88,28,135,.8));
+  box-shadow:0 0 20px rgba(168,85,247,.3), inset 0 0 12px rgba(255,255,255,.1);
+  animation:sgCrystalPulse 2s ease-in-out infinite alternate;
+}
+@keyframes sgCrystalPulse {
+  0% { box-shadow:0 0 15px rgba(168,85,247,.2), inset 0 0 8px rgba(255,255,255,.05); }
+  100% { box-shadow:0 0 30px rgba(168,85,247,.5), inset 0 0 16px rgba(255,255,255,.15); }
+}
+.sg-rv-mist {
+  position:absolute; border-radius:50%; opacity:0;
+  background:radial-gradient(circle, rgba(255,255,255,.15), transparent 70%);
+}
+.sg-rv-mist-1 {
+  inset:5px; animation:sgMistDrift 3s ease-in-out infinite;
+}
+.sg-rv-mist-2 {
+  inset:0; animation:sgMistDrift 3s ease-in-out .8s infinite;
+}
+.sg-rv-mist-3 {
+  inset:10px; animation:sgMistDrift 3s ease-in-out 1.6s infinite;
+}
+@keyframes sgMistDrift {
+  0% { opacity:.5; transform:translateY(0) scale(1); }
+  50% { opacity:0; transform:translateY(-12px) scale(1.3); }
+  100% { opacity:.5; transform:translateY(0) scale(1); }
+}
+
+/* ── Explorer: layers peeling back ── */
+.sg-rv-explorer-stage {
+  position:relative; width:100px; height:100px;
+}
+.sg-rv-layer {
+  position:absolute; border-radius:12px;
+  border:1.5px solid rgba(74,222,128,.4);
+  animation:sgLayerPeel 2.4s ease-out infinite;
+  animation-delay:calc(var(--i) * 0.5s);
+}
+.sg-rv-layer:nth-child(1) { inset:0; border-color:rgba(74,222,128,.2); }
+.sg-rv-layer:nth-child(2) { inset:10px; border-color:rgba(74,222,128,.35); }
+.sg-rv-layer:nth-child(3) { inset:20px; border-color:rgba(74,222,128,.5); }
+.sg-rv-layer:nth-child(4) {
+  inset:30px; border-color:rgba(74,222,128,.7);
+  background:rgba(74,222,128,.08);
+}
+@keyframes sgLayerPeel {
+  0% { transform:scale(.85) rotate(-4deg); opacity:0; }
+  20% { transform:scale(1) rotate(0); opacity:1; }
+  80% { transform:scale(1) rotate(0); opacity:1; }
+  100% { transform:scale(1.15) rotate(2deg); opacity:0; }
+}
+
 /* ══════════════════════════════════════════════════════════
    READINGS TAB
    ══════════════════════════════════════════════════════════ */

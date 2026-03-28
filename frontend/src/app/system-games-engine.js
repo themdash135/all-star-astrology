@@ -270,14 +270,38 @@ function numerologyName(name) {
 
 // ── BaZi ──
 
-function playBaZiElementBalance(result, form) {
+function playBaZiElementBalance(result, form, inputs, dailySeed) {
   const chart = computeBaZiChart(form?.birth_date, form?.birth_time);
   if (!chart) return { error: 'Birth date required.' };
-  const el = chart.elements;
+  const el = { ...chart.elements };
+
+  // "What if" mode: boost a chosen element by 20%
+  let whatIfNote = null;
+  if (inputs.whatIf && el[inputs.whatIf] !== undefined) {
+    const boosted = inputs.whatIf;
+    const totalBefore = Object.values(el).reduce((s, v) => s + v, 0);
+    const boost = Math.max(1, Math.round(totalBefore * 0.2));
+    el[boosted] += boost;
+    whatIfNote = `Simulating +20% ${boosted} energy (+${boost} points). See how the balance shifts.`;
+  }
+
   const sorted = Object.entries(el).sort((a, b) => b[1] - a[1]);
   const dominant = sorted[0][0];
   const weakest = sorted[sorted.length - 1][0];
   const total = Object.values(el).reduce((s, v) => s + v, 0);
+
+  const dIdx = dayIndex(dailySeed || '');
+  const headlineOptions = [
+    `${ELEMENT_ICONS[dominant]} ${dominant}-Dominant Chart`,
+    `${ELEMENT_ICONS[dominant]} Your Chart Leads With ${dominant}`,
+    `${ELEMENT_ICONS[dominant]} ${dominant} Energy Defines Your Chart`,
+  ];
+  const adviceOptions = [
+    ELEMENT_TRAITS[dominant].balance,
+    `Today, channel your ${dominant} strength by also nurturing ${weakest} energy.`,
+    `Your ${dominant} core is powerful \u2014 let ${ELEMENT_PRODUCE[dominant]} activities bring flow today.`,
+  ];
+
   const sections = [
     { title: 'Element Strengths', icon: ELEMENT_ICONS[dominant], items: sorted.filter(([, v]) => v >= 2).map(([e, v]) => ({ label: `${ELEMENT_ICONS[e]} ${e}`, value: `${Math.round((v / total) * 100)}%`, desc: ELEMENT_TRAITS[e].strong })) },
     { title: 'Areas to Develop', icon: ELEMENT_ICONS[weakest], items: sorted.filter(([, v]) => v < 2).map(([e, v]) => ({ label: `${ELEMENT_ICONS[e]} ${e}`, value: `${Math.round((v / total) * 100)}%`, desc: ELEMENT_TRAITS[e].weak })) },
@@ -287,10 +311,13 @@ function playBaZiElementBalance(result, form) {
       { label: `${ELEMENT_CONTROL[dominant]} controls ${dominant}`, value: 'Check', desc: `Introduce ${ELEMENT_CONTROL[dominant]} activities to temper excess ${dominant}` },
     ] },
   ];
-  return { type: 'identity', headline: `${ELEMENT_ICONS[dominant]} ${dominant}-Dominant Chart`, score: Math.round((sorted[0][1] / total) * 100), sections, strengths: [ELEMENT_TRAITS[dominant].strong], cautions: [ELEMENT_TRAITS[weakest].weak], advice: ELEMENT_TRAITS[dominant].balance };
+  if (whatIfNote) {
+    sections.push({ title: 'What-If Simulation', icon: '\uD83D\uDD2C', items: [{ label: `+20% ${inputs.whatIf}`, value: 'Active', desc: whatIfNote }] });
+  }
+  return { type: 'identity', headline: headlineOptions[dIdx % headlineOptions.length], score: Math.round((sorted[0][1] / total) * 100), sections, strengths: [ELEMENT_TRAITS[dominant].strong], cautions: [ELEMENT_TRAITS[weakest].weak], advice: adviceOptions[dIdx % adviceOptions.length] };
 }
 
-function playBaZiFourPillars(result, form) {
+function playBaZiFourPillars(result, form, inputs, dailySeed) {
   const chart = computeBaZiChart(form?.birth_date, form?.birth_time);
   if (!chart) return { error: 'Birth date required.' };
   const items = [];
@@ -303,10 +330,21 @@ function playBaZiFourPillars(result, form) {
       desc: `${info.domain} \u2014 ${STEM_ELEMENTS[pillar.stem]} ${pillar.stem} over ${animal} (${BRANCH_ELEMENTS[pillar.branch]}). ${info.desc}`,
     });
   }
-  return { type: 'explorer', headline: `Day Master: ${STEM_ELEMENTS[chart.pillars.day.stem]} ${chart.pillars.day.stem}`, items, total: `Day Master Element: ${chart.dayMaster}`, meaning: `Your Day Master is ${chart.dayMaster} ${chart.pillars.day.stem}. This is the core of your BaZi identity, shaping how you interact with every other element in your chart.`, advice: 'Understanding your Day Master is the key to reading your entire Four Pillars chart.' };
+  const dIdx = dayIndex(dailySeed || '');
+  const adviceOptions = [
+    'Understanding your Day Master is the key to reading your entire Four Pillars chart.',
+    'Your Day Master is the lens through which all other pillar energies are interpreted.',
+    'Start with your Day Master and trace how each pillar supports or challenges it.',
+  ];
+  const meaningOptions = [
+    `Your Day Master is ${chart.dayMaster} ${chart.pillars.day.stem}. This is the core of your BaZi identity, shaping how you interact with every other element in your chart.`,
+    `${chart.dayMaster} ${chart.pillars.day.stem} sits at the heart of your chart. Every relationship, career move, and life phase filters through this energy.`,
+    `As a ${chart.dayMaster} ${chart.pillars.day.stem} Day Master, your fundamental nature is ${ELEMENT_TRAITS[chart.dayMaster].strong.toLowerCase()}.`,
+  ];
+  return { type: 'explorer', headline: `Day Master: ${STEM_ELEMENTS[chart.pillars.day.stem]} ${chart.pillars.day.stem}`, items, total: `Day Master Element: ${chart.dayMaster}`, meaning: meaningOptions[dIdx % meaningOptions.length], advice: adviceOptions[dIdx % adviceOptions.length] };
 }
 
-function playBaZiLuckTimeline(result, form) {
+function playBaZiLuckTimeline(result, form, inputs, dailySeed) {
   const bd = parseBirthDate(form?.birth_date);
   if (!bd) return { error: 'Birth date required.' };
   const chart = computeBaZiChart(form?.birth_date, form?.birth_time);
@@ -333,10 +371,16 @@ function playBaZiLuckTimeline(result, form) {
   const now = new Date().getFullYear();
   const age = now - bd.year;
   const currentIdx = periods.findIndex(p => { const a = parseInt(p.years.match(/\d+/)[0]); return age >= a && age < a + 10; });
-  return { type: 'timeline', headline: `${chart.dayMaster} Day Master \u2014 Life Phases`, periods, currentPeriod: currentIdx >= 0 ? currentIdx : 0, advice: 'Each 10-year Luck Pillar brings a new elemental influence that interacts with your Day Master.' };
+  const dIdx = dayIndex(dailySeed || '');
+  const adviceOptions = [
+    'Each 10-year Luck Pillar brings a new elemental influence that interacts with your Day Master.',
+    'Your current Luck Pillar sets the backdrop for daily decisions \u2014 work with its element, not against it.',
+    'Transitions between Luck Pillars are pivotal moments. Prepare for the next phase by understanding its element.',
+  ];
+  return { type: 'timeline', headline: `${chart.dayMaster} Day Master \u2014 Life Phases`, periods, currentPeriod: currentIdx >= 0 ? currentIdx : 0, advice: adviceOptions[dIdx % adviceOptions.length] };
 }
 
-function playBaZiCompat(result, form, inputs) {
+function playBaZiCompat(result, form, inputs, dailySeed) {
   if (!inputs.partner_date) return { error: 'Partner birth date required.' };
   const chart1 = computeBaZiChart(form?.birth_date, form?.birth_time);
   const chart2 = computeBaZiChart(inputs.partner_date);
@@ -355,16 +399,22 @@ function playBaZiCompat(result, form, inputs) {
     { name: 'Growth Potential', score: controls ? 80 : produces ? 65 : 60, desc: controls ? 'Tension drives transformation and mutual evolution' : 'Growth comes through supporting each other\u2019s strengths' },
     { name: 'Conflict Triggers', score: controls ? 35 : same ? 55 : 72, desc: controls ? 'Power dynamics need conscious management' : 'Relatively few natural friction points' },
   ];
-  return { type: 'compatibility', headline: `${ELEMENT_ICONS[dm1]} ${dm1} + ${ELEMENT_ICONS[dm2]} ${dm2}`, score: baseScore, scoreLabel: baseScore >= 70 ? 'Strong Harmony' : baseScore >= 50 ? 'Growth Potential' : 'Dynamic Tension', categories, bestFeature: produces ? `${dm1} and ${dm2} form a producing pair \u2014 one feeds the other` : same ? 'Same element creates instant recognition' : `${dm1} and ${dm2} challenge each other toward growth`, watchOut: controls ? `The ${ELEMENT_CONTROL[dm1] === dm2 ? dm1 : dm2} partner may unconsciously dominate` : 'Avoid taking harmony for granted', advice: `In BaZi, ${dm1} and ${dm2} ${produces ? 'form a productive cycle' : controls ? 'form a controlling cycle' : 'share elemental nature'}. The key is conscious awareness of how your elements interact.` };
+  const dIdx = dayIndex(dailySeed || '');
+  const adviceOptions = [
+    `In BaZi, ${dm1} and ${dm2} ${produces ? 'form a productive cycle' : controls ? 'form a controlling cycle' : 'share elemental nature'}. The key is conscious awareness of how your elements interact.`,
+    `The ${dm1}-${dm2} pairing ${produces ? 'thrives on mutual nourishment' : controls ? 'grows strongest through healthy boundaries' : 'deepens through shared understanding'}. Lean into that dynamic today.`,
+    `${dm1} and ${dm2} together ${produces ? 'create a generative loop \u2014 feed it intentionally' : controls ? 'forge resilience \u2014 respect each other\u2019s power' : 'mirror each other \u2014 use that clarity wisely'}.`,
+  ];
+  return { type: 'compatibility', headline: `${ELEMENT_ICONS[dm1]} ${dm1} + ${ELEMENT_ICONS[dm2]} ${dm2}`, score: baseScore, scoreLabel: baseScore >= 70 ? 'Strong Harmony' : baseScore >= 50 ? 'Growth Potential' : 'Dynamic Tension', categories, bestFeature: produces ? `${dm1} and ${dm2} form a producing pair \u2014 one feeds the other` : same ? 'Same element creates instant recognition' : `${dm1} and ${dm2} challenge each other toward growth`, watchOut: controls ? `The ${ELEMENT_CONTROL[dm1] === dm2 ? dm1 : dm2} partner may unconsciously dominate` : 'Avoid taking harmony for granted', advice: adviceOptions[dIdx % adviceOptions.length] };
 }
 
 // ── Vedic ──
 
-function playVedicGunaMatch(result, form, inputs) {
+function playVedicGunaMatch(result, form, inputs, dailySeed) {
   if (!inputs.partner_date) return { error: 'Partner birth date required.' };
   const nak1 = approxNakshatra(form?.birth_date);
   const nak2 = approxNakshatra(inputs.partner_date);
-  const rng = seededRandom(`guna-${form?.birth_date}-${inputs.partner_date}`);
+  const rng = seededRandom(`guna-${form?.birth_date}-${inputs.partner_date}-${dailySeed || ''}`);
   const categories = GUNA_CATEGORIES.map(cat => {
     const score = Math.min(cat.max, Math.round(rng() * cat.max) + (nak1.name === nak2.name ? 1 : 0));
     return { name: cat.name, score, max: cat.max, desc: `${cat.desc}. Score: ${score}/${cat.max}` };
@@ -375,7 +425,7 @@ function playVedicGunaMatch(result, form, inputs) {
   return { type: 'compatibility', headline: `${nak1.name} + ${nak2.name}`, score: pct, scoreLabel: total >= 25 ? 'Excellent Match' : total >= 18 ? 'Good Match' : total >= 12 ? 'Average Match' : 'Challenging Match', categories: categories.map(c => ({ name: `${c.name} (${c.score}/${c.max})`, score: Math.round((c.score / c.max) * 100), desc: c.desc })), bestFeature: `Strongest area: ${categories.sort((a, b) => (b.score / b.max) - (a.score / a.max))[0].name}`, watchOut: `Weakest area: ${categories.sort((a, b) => (a.score / a.max) - (b.score / b.max))[0].name}`, advice: `Total Guna Score: ${total}/${maxTotal}. In Vedic tradition, 18+ is considered favorable for marriage.` };
 }
 
-function playVedicDashaTimeline(result, form) {
+function playVedicDashaTimeline(result, form, inputs, dailySeed) {
   const bd = parseBirthDate(form?.birth_date);
   if (!bd) return { error: 'Birth date required.' };
   const nak = approxNakshatra(form?.birth_date);
@@ -405,9 +455,9 @@ function playVedicDashaTimeline(result, form) {
   return { type: 'timeline', headline: `${nak.name} Nakshatra \u2014 Dasha Map`, periods, currentPeriod: currentIdx >= 0 ? currentIdx : 0, advice: `Your birth nakshatra ${nak.name} determines the starting point of your planetary periods. Each dasha lord brings its own themes and lessons.` };
 }
 
-function playVedicPrashna(result, form, inputs) {
+function playVedicPrashna(result, form, inputs, dailySeed) {
   if (!inputs.question?.trim()) return { error: 'Please enter a question.' };
-  const seed = `prashna-${inputs.question}-${Date.now()}`;
+  const seed = `prashna-${inputs.question}-${Date.now()}-${dailySeed || ''}`;
   const rng = seededRandom(seed);
   const nak = approxNakshatra(form?.birth_date);
   const lords = ['Sun','Moon','Mars','Mercury','Jupiter','Venus','Saturn'];
@@ -416,7 +466,7 @@ function playVedicPrashna(result, form, inputs) {
   return { type: 'oracle', headline: `${lord} Speaks`, verse: `The ${lord} casts its light upon your question through ${nak.name}.`, answer: favorable ? 'The signs are favorable. Conditions support your intention.' : 'The signs urge caution. Timing or approach may need adjustment.', guidance: `${lord} governs ${PLANET_MEANINGS[lord] || 'cosmic influence'}. ${favorable ? 'This energy supports your inquiry.' : 'Patience and reflection are advised.'}`, caution: favorable ? 'Do not mistake ease for certainty \u2014 remain mindful.' : 'Resistance is not rejection \u2014 it may be redirection.', timing: favorable ? 'Within the current lunar cycle' : 'After a period of reflection', actions: ['Meditate on the answer', 'Revisit in one lunar cycle', 'Consider an alternative approach'] };
 }
 
-function playVedicNakshatra(result, form) {
+function playVedicNakshatra(result, form, inputs, dailySeed) {
   if (!form?.birth_date) return { error: 'Birth date required.' };
   const nak = approxNakshatra(form.birth_date);
   const sections = [
@@ -436,7 +486,7 @@ function playVedicNakshatra(result, form) {
 
 // ── Western ──
 
-function playWesternSynastry(result, form, inputs) {
+function playWesternSynastry(result, form, inputs, dailySeed) {
   if (!inputs.partner_date) return { error: 'Partner birth date required.' };
   const sign1 = signFromDate(form?.birth_date);
   const sign2 = signFromDate(inputs.partner_date);
@@ -452,13 +502,19 @@ function playWesternSynastry(result, form, inputs) {
     { name: 'Conflict Chemistry', score: 100 - eScore, desc: eScore > 70 ? 'Low friction, high ease' : 'Dynamic tension fuels growth' },
   ];
   const avg = Math.round(categories.reduce((s, c) => s + c.score, 0) / categories.length);
-  return { type: 'compatibility', headline: `${SIGN_ICONS[sign1]} ${sign1} + ${SIGN_ICONS[sign2]} ${sign2}`, score: Math.min(95, Math.max(20, avg)), scoreLabel: avg >= 70 ? 'Strong Chemistry' : avg >= 55 ? 'Solid Potential' : 'Dynamic Pairing', categories, bestFeature: categories.sort((a, b) => b.score - a.score)[0].name, watchOut: categories.sort((a, b) => a.score - b.score)[0].name + ' needs attention', advice: `${sign1} (${elem1}/${mod1}) and ${sign2} (${elem2}/${mod2}) create a ${avg >= 70 ? 'naturally harmonious' : 'growth-oriented'} dynamic. The key aspects to nurture are ${categories[0].name.toLowerCase()} and ${categories[1].name.toLowerCase()}.` };
+  const dIdx = dayIndex(dailySeed || '');
+  const adviceOptions = [
+    `${sign1} (${elem1}/${mod1}) and ${sign2} (${elem2}/${mod2}) create a ${avg >= 70 ? 'naturally harmonious' : 'growth-oriented'} dynamic. The key aspects to nurture are ${categories[0].name.toLowerCase()} and ${categories[1].name.toLowerCase()}.`,
+    `The ${sign1}-${sign2} connection is shaped by ${elem1} meeting ${elem2}. ${sameElem ? 'Shared elements deepen understanding but watch for echo-chamber tendencies.' : 'Different elements create the spark that keeps the relationship alive.'}`,
+    `Today the stars highlight the ${categories[dIdx % categories.length].name.toLowerCase()} dimension of your ${sign1}-${sign2} bond. Give it attention.`,
+  ];
+  return { type: 'compatibility', headline: `${SIGN_ICONS[sign1]} ${sign1} + ${SIGN_ICONS[sign2]} ${sign2}`, score: Math.min(95, Math.max(20, avg)), scoreLabel: avg >= 70 ? 'Strong Chemistry' : avg >= 55 ? 'Solid Potential' : 'Dynamic Pairing', categories, bestFeature: categories.sort((a, b) => b.score - a.score)[0].name, watchOut: categories.sort((a, b) => a.score - b.score)[0].name + ' needs attention', advice: adviceOptions[dIdx % adviceOptions.length] };
 }
 
-function playWesternNatalChallenge(result, form) {
+function playWesternNatalChallenge(result, form, inputs, dailySeed) {
   if (!form?.birth_date) return { error: 'Birth date required.' };
   const sign = signFromDate(form.birth_date);
-  const rng = seededRandom(`natal-${form.birth_date}`);
+  const rng = seededRandom(`natal-${form.birth_date}-${dailySeed || ''}`);
   const moonSign = SIGNS[Math.floor(rng() * 12)];
   const rising = SIGNS[Math.floor(rng() * 12)];
   const strongPlanet = pick(PLANETS, rng);
@@ -470,26 +526,42 @@ function playWesternNatalChallenge(result, form) {
     { label: 'Dominant Planet', value: `${PLANET_SYMBOLS[strongPlanet]} ${strongPlanet}`, desc: `${strongPlanet} governs ${PLANET_MEANINGS[strongPlanet]} in your chart.` },
     { label: 'Power House', value: `House ${strongHouse}`, desc: `The ${strongHouse}th house of ${HOUSE_MEANINGS[strongHouse]} is your strongest life area.` },
   ];
-  return { type: 'explorer', headline: `${SIGN_ICONS[sign]} ${sign} Sun \u2014 Chart Map`, items, total: `Big Three: ${sign} / ${moonSign} / ${rising}`, meaning: `Your Sun in ${sign} gives you ${SIGN_ELEMENTS[sign]} core energy, your Moon in ${moonSign} shapes your emotional world, and ${rising} Rising is how the world first perceives you.`, advice: `Focus on your ${strongHouse}th house (${HOUSE_MEANINGS[strongHouse]}) \u2014 this is where your chart concentrates the most energy.` };
+  const dIdx = dayIndex(dailySeed || '');
+  const adviceOptions = [
+    `Focus on your ${strongHouse}th house (${HOUSE_MEANINGS[strongHouse]}) \u2014 this is where your chart concentrates the most energy.`,
+    `With ${strongPlanet} dominant, today is ideal for activities related to ${PLANET_MEANINGS[strongPlanet]}.`,
+    `Your Big Three (${sign}/${moonSign}/${rising}) suggests leading with your ${SIGN_ELEMENTS[rising]} Rising energy today.`,
+  ];
+  const meaningOptions = [
+    `Your Sun in ${sign} gives you ${SIGN_ELEMENTS[sign]} core energy, your Moon in ${moonSign} shapes your emotional world, and ${rising} Rising is how the world first perceives you.`,
+    `The ${sign} Sun drives your identity, while ${moonSign} Moon reveals what you need emotionally. ${rising} Rising is your social armor.`,
+    `Three elements converge: ${SIGN_ELEMENTS[sign]} will, ${SIGN_ELEMENTS[moonSign]} feeling, and ${SIGN_ELEMENTS[rising]} presentation. Notice which leads today.`,
+  ];
+  return { type: 'explorer', headline: `${SIGN_ICONS[sign]} ${sign} Sun \u2014 Chart Map`, items, total: `Big Three: ${sign} / ${moonSign} / ${rising}`, meaning: meaningOptions[dIdx % meaningOptions.length], advice: adviceOptions[dIdx % adviceOptions.length] };
 }
 
-function playWesternTransit(result, form) {
+function playWesternTransit(result, form, inputs, dailySeed) {
   if (!form?.birth_date) return { error: 'Birth date required.' };
   const sign = signFromDate(form.birth_date);
-  const now = new Date();
-  const rng = seededRandom(`transit-${form.birth_date}-${now.toISOString().slice(0, 10)}`);
+  const rng = seededRandom(`transit-${form.birth_date}-${dailySeed || new Date().toISOString().slice(0, 10)}`);
   const areas = ['Love', 'Career', 'Mood', 'Opportunity', 'Challenge'];
   const periods = areas.map(area => {
     const planet = pick(PLANETS, rng);
     const rating = rng() > 0.5 ? 'favorable' : rng() > 0.3 ? 'neutral' : 'challenging';
     return { label: area, years: `${planet} transit`, theme: `${PLANET_SYMBOLS[planet]} ${planet} influences ${area.toLowerCase()}`, element: planet, desc: `${planet} is currently activating your ${area.toLowerCase()} zone. ${rating === 'favorable' ? 'Energy flows naturally.' : rating === 'neutral' ? 'Steady conditions.' : 'Friction creates growth.'}`, rating };
   });
-  return { type: 'timeline', headline: `Current Transits for ${SIGN_ICONS[sign]} ${sign}`, periods, currentPeriod: 0, advice: 'Transit influences change as planets move through your chart. Check back regularly for updated cosmic weather.' };
+  const dIdx = dayIndex(dailySeed || '');
+  const adviceOptions = [
+    'Transit influences change as planets move through your chart. Check back regularly for updated cosmic weather.',
+    'Today\u2019s planetary weather is unique. Notice which transit area resonates most with your current situation.',
+    'Transits are invitations, not commands. Use them as lenses to focus your awareness today.',
+  ];
+  return { type: 'timeline', headline: `Current Transits for ${SIGN_ICONS[sign]} ${sign}`, periods, currentPeriod: 0, advice: adviceOptions[dIdx % adviceOptions.length] };
 }
 
-function playWesternHousePower(result, form) {
+function playWesternHousePower(result, form, inputs, dailySeed) {
   if (!form?.birth_date) return { error: 'Birth date required.' };
-  const rng = seededRandom(`houses-${form.birth_date}`);
+  const rng = seededRandom(`houses-${form.birth_date}-${dailySeed || ''}`);
   const houses = [];
   for (let i = 1; i <= 12; i++) {
     houses.push({ house: i, meaning: HOUSE_MEANINGS[i], score: Math.round(rng() * 60 + 30) });
@@ -501,12 +573,18 @@ function playWesternHousePower(result, form) {
     { title: 'Strongest Houses', icon: '\u2B50', items: top3.map(h => ({ label: `House ${h.house}`, value: `${h.score}%`, desc: `${h.meaning} \u2014 this area of life is naturally empowered in your chart` })) },
     { title: 'Growth Areas', icon: '\uD83C\uDF31', items: bottom3.map(h => ({ label: `House ${h.house}`, value: `${h.score}%`, desc: `${h.meaning} \u2014 conscious effort here brings disproportionate reward` })) },
   ];
-  return { type: 'identity', headline: `Power House: ${top3[0].meaning}`, score: top3[0].score, sections, strengths: top3.map(h => `House ${h.house}: ${h.meaning}`), cautions: bottom3.map(h => `House ${h.house}: ${h.meaning} needs attention`), advice: `Your strongest life area is the ${top3[0].house}th house of ${top3[0].meaning}. Lean into this natural strength while developing your growth areas.` };
+  const dIdx = dayIndex(dailySeed || '');
+  const adviceOptions = [
+    `Your strongest life area is the ${top3[0].house}th house of ${top3[0].meaning}. Lean into this natural strength while developing your growth areas.`,
+    `Today, the ${top3[0].house}th house of ${top3[0].meaning} is especially activated. Direct your focus there for maximum impact.`,
+    `Balance is key: your ${top3[0].meaning} house leads, but growth lives in your ${bottom3[0].meaning} house. Give both attention today.`,
+  ];
+  return { type: 'identity', headline: `Power House: ${top3[0].meaning}`, score: top3[0].score, sections, strengths: top3.map(h => `House ${h.house}: ${h.meaning}`), cautions: bottom3.map(h => `House ${h.house}: ${h.meaning} needs attention`), advice: adviceOptions[dIdx % adviceOptions.length] };
 }
 
 // ── Chinese ──
 
-function playChineseCompatMatrix(result, form, inputs) {
+function playChineseCompatMatrix(result, form, inputs, dailySeed) {
   if (!inputs.partner_date) return { error: 'Partner birth date required.' };
   const bd1 = parseBirthDate(form?.birth_date);
   const bd2 = parseBirthDate(inputs.partner_date);
@@ -515,7 +593,8 @@ function playChineseCompatMatrix(result, form, inputs) {
   const e1 = chineseElement(bd1.year), e2 = chineseElement(bd2.year);
   const isBest = CHINESE_COMPAT.best[a1]?.includes(a2);
   const isWorst = CHINESE_COMPAT.worst[a1]?.includes(a2);
-  const score = isBest ? 85 + Math.round(Math.random() * 10) : isWorst ? 25 + Math.round(Math.random() * 15) : 50 + Math.round(Math.random() * 20);
+  const cRng = seededRandom(`cn-compat-${form?.birth_date}-${inputs.partner_date}-${dailySeed || ''}`);
+  const score = isBest ? 85 + Math.round(cRng() * 10) : isWorst ? 25 + Math.round(cRng() * 15) : 50 + Math.round(cRng() * 20);
   const categories = [
     { name: 'Harmony', score: isBest ? 88 : isWorst ? 30 : 60, desc: isBest ? 'Natural allies in the zodiac' : isWorst ? 'Opposite energies create friction' : 'Neutral pairing with room to grow' },
     { name: 'Passion', score: isWorst ? 75 : isBest ? 70 : 55, desc: isWorst ? 'Opposites attract intensely' : 'Steady warm connection' },
@@ -525,9 +604,9 @@ function playChineseCompatMatrix(result, form, inputs) {
   return { type: 'compatibility', headline: `${CHINESE_ANIMAL_ICONS[a1]} ${a1} + ${CHINESE_ANIMAL_ICONS[a2]} ${a2}`, score, scoreLabel: isBest ? 'Heavenly Match' : isWorst ? 'Dynamic Opposites' : 'Compatible Pair', categories, bestFeature: `${a1} brings ${CHINESE_ANIMAL_TRAITS[a1].split(',')[0].trim()}, ${a2} brings ${CHINESE_ANIMAL_TRAITS[a2].split(',')[0].trim()}`, watchOut: isWorst ? `${a1} and ${a2} traditionally clash \u2014 conscious effort needed` : 'Don\u2019t take harmony for granted', advice: `${e1} ${a1} and ${e2} ${a2}: ${isBest ? 'a classically blessed pairing in Chinese astrology' : isWorst ? 'a challenging but potentially transformative bond' : 'a pairing with solid potential when nurtured'}.` };
 }
 
-function playChineseFortuneStick(result, form, inputs) {
+function playChineseFortuneStick(result, form, inputs, dailySeed) {
   if (!inputs.question?.trim()) return { error: 'Please enter a question.' };
-  const seed = `fortune-${inputs.question}-${Date.now()}`;
+  const seed = `fortune-${inputs.question}-${Date.now()}-${dailySeed || ''}`;
   const rng = seededRandom(seed);
   const poem = pick(FORTUNE_POEMS, rng);
   const bd = parseBirthDate(form?.birth_date);
@@ -535,7 +614,7 @@ function playChineseFortuneStick(result, form, inputs) {
   return { type: 'oracle', headline: `Stick #${poem.num} \u2014 ${poem.luck}`, verse: poem.verse, answer: poem.meaning, guidance: `The ${animal} energy in your chart adds ${CHINESE_ANIMAL_TRAITS[animal].split(',')[0].trim()} to this reading. ${poem.meaning}`, caution: poem.luck === 'Moderate' ? 'Proceed with awareness. Not all doors are meant to open now.' : poem.luck === 'Excellent' ? 'Fortune favors you, but do not become complacent.' : 'Steady effort will shift conditions in your favor.', timing: poem.luck === 'Excellent' ? 'Immediate' : poem.luck === 'Very Good' ? 'Within days' : 'Within one lunar month', actions: ['Reflect on the verse', 'Take one aligned action today', 'Return for another drawing later'] };
 }
 
-function playChineseYearChallenge(result, form) {
+function playChineseYearChallenge(result, form, inputs, dailySeed) {
   const bd = parseBirthDate(form?.birth_date);
   if (!bd) return { error: 'Birth date required.' };
   const userAnimal = chineseAnimal(bd.year);
@@ -564,7 +643,7 @@ function playChineseYearChallenge(result, form) {
 
 // ── Numerology ──
 
-function playNumDeepDecoder(result, form) {
+function playNumDeepDecoder(result, form, inputs, dailySeed) {
   if (!form?.birth_date) return { error: 'Birth date required.' };
   const lp = lifePath(form.birth_date);
   const lpData = LIFE_PATH_DATA[lp] || LIFE_PATH_DATA[reduceNumber(lp)] || LIFE_PATH_DATA[1];
@@ -582,7 +661,7 @@ function playNumDeepDecoder(result, form) {
   return { type: 'identity', headline: `Life Path ${lp}: ${lpData.trait}`, score: null, sections, strengths: [lpData.teaser], cautions: ['Avoid over-identifying with a single number \u2014 your full code tells the complete story'], advice: `Your core code is ${lp}-${nameNums.destiny}-${nameNums.soul}-${nameNums.personality}-${birthdayNum}. Together these five numbers paint your complete numerological portrait.` };
 }
 
-function playNumRelationship(result, form, inputs) {
+function playNumRelationship(result, form, inputs, dailySeed) {
   if (!inputs.partner_date) return { error: 'Partner birth date required.' };
   const lp1 = lifePath(form?.birth_date);
   const lp2 = lifePath(inputs.partner_date);
@@ -602,7 +681,7 @@ function playNumRelationship(result, form, inputs) {
   return { type: 'compatibility', headline: `Life Path ${lp1} + ${lp2}`, score, scoreLabel: score >= 75 ? 'Natural Harmony' : score >= 60 ? 'Growth Partnership' : 'Complementary Differences', categories, bestFeature: same ? 'Identical Life Paths create instant recognition' : `${lp1} and ${lp2} bring complementary strengths`, watchOut: same ? 'Too much similarity can create blind spots' : 'Honor your different approaches to life', advice: `When Life Path ${lp1} meets ${lp2}, the relationship becomes a classroom for ${same ? 'deepening what you already share' : 'expanding into new dimensions'}.` };
 }
 
-function playNumYearTimeline(result, form) {
+function playNumYearTimeline(result, form, inputs, dailySeed) {
   const bd = parseBirthDate(form?.birth_date);
   if (!bd) return { error: 'Birth date required.' };
   const now = new Date().getFullYear();
@@ -626,9 +705,9 @@ function playNumYearTimeline(result, form) {
 
 // ── Kabbalistic ──
 
-function playKabTreeJourney(result, form) {
+function playKabTreeJourney(result, form, inputs, dailySeed) {
   if (!form?.birth_date) return { error: 'Birth date required.' };
-  const rng = seededRandom(`tree-${form.birth_date}`);
+  const rng = seededRandom(`tree-${form.birth_date}-${dailySeed || ''}`);
   const items = SEPHIROT.map((s, i) => {
     const strength = Math.round(rng() * 60 + 30);
     return { label: `${s.name} (${s.english})`, value: `${strength}%`, desc: `${s.quality}: ${s.desc}` };
@@ -637,9 +716,9 @@ function playKabTreeJourney(result, form) {
   return { type: 'explorer', headline: `Tree of Life Profile`, items, total: `Strongest Sephirah: ${strongest.label}`, meaning: `Your Tree of Life is anchored in ${strongest.label.split(' (')[0]}. This sephirah\u2019s quality of ${SEPHIROT.find(s => strongest.label.startsWith(s.name))?.quality} is your spiritual center of gravity.`, advice: 'The Tree of Life is a map of consciousness. Each sephirah represents a different quality of being. Balance comes from developing all ten.' };
 }
 
-function playKabSephirotBalance(result, form) {
+function playKabSephirotBalance(result, form, inputs, dailySeed) {
   if (!form?.birth_date) return { error: 'Birth date required.' };
-  const rng = seededRandom(`sephirot-${form.birth_date}`);
+  const rng = seededRandom(`sephirot-${form.birth_date}-${dailySeed || ''}`);
   const scored = SEPHIROT.map(s => ({ ...s, score: Math.round(rng() * 60 + 30) }));
   scored.sort((a, b) => b.score - a.score);
   const sections = [
@@ -649,10 +728,10 @@ function playKabSephirotBalance(result, form) {
   return { type: 'identity', headline: `Anchored in ${scored[0].name}`, score: scored[0].score, sections, strengths: scored.slice(0, 3).map(s => s.strength), cautions: scored.slice(-3).map(s => s.weakness), advice: `Your consciousness is most developed in ${scored[0].name} (${scored[0].english}) and least in ${scored[scored.length - 1].name} (${scored[scored.length - 1].english}). The path to wholeness runs between them.` };
 }
 
-function playKabPathCompat(result, form, inputs) {
+function playKabPathCompat(result, form, inputs, dailySeed) {
   if (!inputs.partner_date) return { error: 'Partner birth date required.' };
-  const rng1 = seededRandom(`sephirot-${form?.birth_date}`);
-  const rng2 = seededRandom(`sephirot-${inputs.partner_date}`);
+  const rng1 = seededRandom(`sephirot-${form?.birth_date}-${dailySeed || ''}`);
+  const rng2 = seededRandom(`sephirot-${inputs.partner_date}-${dailySeed || ''}`);
   const scores1 = SEPHIROT.map(s => ({ name: s.name, english: s.english, score: Math.round(rng1() * 60 + 30) }));
   const scores2 = SEPHIROT.map(s => ({ name: s.name, english: s.english, score: Math.round(rng2() * 60 + 30) }));
   const categories = SEPHIROT.slice(0, 5).map((s, i) => {
@@ -666,7 +745,7 @@ function playKabPathCompat(result, form, inputs) {
 
 // ── Gematria ──
 
-function playGemWordDecoder(result, form, inputs) {
+function playGemWordDecoder(result, form, inputs, dailySeed) {
   const text = inputs.text?.trim();
   if (!text) return { error: 'Enter a word or name.' };
   const total = wordValue(text);
@@ -679,7 +758,7 @@ function playGemWordDecoder(result, form, inputs) {
   return { type: 'explorer', headline: `"${text}" = ${total}`, items, total: `Full Value: ${total} \u2192 Reduced: ${reduced}`, meaning: `The word "${text}" carries the vibration of ${total} (reduced to ${reduced}). ${LIFE_PATH_DATA[reduced] ? LIFE_PATH_DATA[reduced].teaser : `This number resonates with the energy of ${reduced}.`}`, advice: 'In Gematria, every word is also a number, and every number carries meaning. Words with the same value share a hidden connection.' };
 }
 
-function playGemHiddenLink(result, form, inputs) {
+function playGemHiddenLink(result, form, inputs, dailySeed) {
   const t1 = inputs.text?.trim(), t2 = inputs.text2?.trim();
   if (!t1 || !t2) return { error: 'Enter both words or names.' };
   const v1 = wordValue(t1), v2 = wordValue(t2);
@@ -695,7 +774,7 @@ function playGemHiddenLink(result, form, inputs) {
   return { type: 'compatibility', headline: `"${t1}" \u2194 "${t2}"`, score: avg, scoreLabel: sameReduced ? 'Hidden Connection Found' : avg >= 60 ? 'Resonant Pair' : 'Contrasting Energies', categories, bestFeature: sameReduced ? `Both words share the root vibration of ${r1}` : 'Their difference creates dynamic meaning', watchOut: 'Gematria connections are symbolic, not literal', advice: `"${t1}" (${v1}\u2192${r1}) and "${t2}" (${v2}\u2192${r2}): ${sameReduced ? 'these words are numerically linked at the deepest level' : 'their different values highlight complementary meanings'}.` };
 }
 
-function playGemSoulName(result, form) {
+function playGemSoulName(result, form, inputs, dailySeed) {
   const name = form?.full_name?.trim();
   if (!name) return { error: 'Full name required in your profile.' };
   const total = wordValue(name);
@@ -714,23 +793,23 @@ function playGemSoulName(result, form) {
 
 // ── Persian ──
 
-function playPersianGeomancy(result, form, inputs) {
+function playPersianGeomancy(result, form, inputs, dailySeed) {
   if (!inputs.question?.trim()) return { error: 'Please enter a question.' };
-  const seed = `geo-${inputs.question}-${Date.now()}`;
+  const seed = `geo-${inputs.question}-${Date.now()}-${dailySeed || ''}`;
   const rng = seededRandom(seed);
   const figure = pick(GEOMANTIC_FIGURES, rng);
   const house = Math.floor(rng() * 12) + 1;
   return { type: 'oracle', headline: `${figure.name} \u2014 ${figure.meaning}`, verse: `The sand reveals ${figure.name} in the ${house}th house of ${HOUSE_MEANINGS[house]}.`, answer: figure.answer, guidance: `${figure.name} (${figure.element} element) speaks of ${figure.nature}. In the house of ${HOUSE_MEANINGS[house]}, this figure directs your attention to matters of ${HOUSE_MEANINGS[house]}.`, caution: 'Geomancy reveals tendencies, not certainties. Your free will shapes the final outcome.', timing: figure.element === 'Fire' ? 'Soon \u2014 days' : figure.element === 'Air' ? 'Weeks' : figure.element === 'Water' ? 'Gradual unfolding' : 'In due time', actions: ['Sit with the figure\u2019s message', 'Take one action aligned with the guidance', 'Revisit if circumstances change significantly'] };
 }
 
-function playPersianAstrolabe(result, form) {
+function playPersianAstrolabe(result, form, inputs, dailySeed) {
   if (!form?.birth_date) return { error: 'Birth date required.' };
   const sign = signFromDate(form.birth_date);
   const bd = parseBirthDate(form.birth_date);
   const dayOfWeek = new Date(bd.year, bd.month - 1, bd.day).getDay();
   const dayPlanets = ['Moon','Mars','Mercury','Jupiter','Venus','Saturn','Sun'];
   const ruler = dayPlanets[dayOfWeek];
-  const rng = seededRandom(`astrolabe-${form.birth_date}`);
+  const rng = seededRandom(`astrolabe-${form.birth_date}-${dailySeed || ''}`);
   const mansion = Math.floor(rng() * 28) + 1;
   const lot = Math.floor(rng() * 12) + 1;
   const items = [
@@ -743,12 +822,26 @@ function playPersianAstrolabe(result, form) {
   return { type: 'explorer', headline: `${PLANET_SYMBOLS[ruler]} ${ruler} \u2014 Born Under ${sign}`, items, total: `Ruling Planet: ${ruler} (${PLANET_MEANINGS[ruler]})`, meaning: `The astrolabe places you under ${ruler}\u2019s governance with ${sign} solar energy. Your Lot of Fortune in the ${lot}th house points to ${HOUSE_MEANINGS[lot]} as a key area for material blessings.`, advice: `Align your actions with ${ruler}\u2019s day (${['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][dayOfWeek]}) for maximum resonance.` };
 }
 
-function playPersianFal(result, form, inputs) {
+function playPersianFal(result, form, inputs, dailySeed) {
   if (!inputs.question?.trim()) return { error: 'Please enter a question.' };
-  const seed = `fal-${inputs.question}-${Date.now()}`;
+  const seed = `fal-${inputs.question}-${Date.now()}-${dailySeed || ''}`;
   const rng = seededRandom(seed);
   const poem = pick(PERSIAN_POEMS, rng);
   return { type: 'oracle', headline: `${poem.tone}`, verse: poem.verse, answer: poem.guidance, guidance: poem.guidance, caution: poem.caution, timing: 'The verse speaks in its own time', actions: ['Read the verse aloud three times', 'Carry its wisdom through the day', 'Return when a new question arises'] };
+}
+
+
+// ══════════════════════════════════════════════════════
+//  Daily Seed Helper
+// ══════════════════════════════════════════════════════
+
+/** Compute a numeric day-index from a date string (YYYY-MM-DD). */
+function dayIndex(dailySeed) {
+  let h = 0;
+  for (let i = 0; i < dailySeed.length; i++) {
+    h = ((h << 5) - h + dailySeed.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
 }
 
 
@@ -786,8 +879,17 @@ const PLAY_FUNCTIONS = {
   'persian-fal': playPersianFal,
 };
 
-export function playSystemGame(gameId, result, form, inputs) {
+/**
+ * Main entry point.
+ * @param {string} gameId
+ * @param {object} result - full reading result
+ * @param {object} form - birth data form
+ * @param {object} inputs - per-game inputs (partner_date, question, text, etc.)
+ * @param {string} [seed] - optional daily seed; defaults to today's date (YYYY-MM-DD)
+ */
+export function playSystemGame(gameId, result, form, inputs, seed) {
   const fn = PLAY_FUNCTIONS[gameId];
   if (!fn) return { error: `Unknown game: ${gameId}` };
-  return fn(result, form, inputs || {});
+  const dailySeed = seed || new Date().toISOString().slice(0, 10);
+  return fn(result, form, inputs || {}, dailySeed);
 }

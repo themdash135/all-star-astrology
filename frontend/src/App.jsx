@@ -301,7 +301,7 @@ export default function App() {
           ) : tab === 'today' ? (
             <TodayTab result={result} temporal={temporal} scores={scores} onOpenSettings={() => setSettingsOpen(true)} onAnalysis={() => setTab('analysis')} />
           ) : tab === 'systems' ? (
-            <SystemsTabV2 result={result} />
+            <SystemsTabV2 result={result} form={form} />
           ) : tab === 'oracle' ? (
             <OracleScreen result={result} form={form} reducedMotion={reducedMotion} />
           ) : tab === 'analysis' ? (
