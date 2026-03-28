@@ -108,7 +108,7 @@ function useLocationSearch(inputValue) {
   return { filtered, setGeoResults };
 }
 
-export function OnboardingScreen({ form, setForm, onSubmit, loading, error, theme, setTheme }) {
+export function OnboardingScreen({ form, setForm, onSubmit, onCancel, loading, error, theme, setTheme }) {
   const [step, setStep] = useState(1);
   const [hebManual, setHebManual] = useState(false);
   const [cityFocus, setCityFocus] = useState(false);
@@ -158,6 +158,9 @@ export function OnboardingScreen({ form, setForm, onSubmit, loading, error, them
 
   return (
     <div className="screen ob-screen">
+      {onCancel && (
+        <button type="button" className="ob-cancel" onClick={onCancel}>&#x2190; Cancel</button>
+      )}
       <div className="ob-dots" aria-hidden="true">
         {Array.from({ length: TOTAL_STEPS }, (_, i) => i + 1).map((index) => (
           <div key={index} className={`ob-dot ${index <= step ? 'ob-dot--active' : ''} ${index === step ? 'ob-dot--current' : ''}`} />
@@ -168,6 +171,7 @@ export function OnboardingScreen({ form, setForm, onSubmit, loading, error, them
         {step === 1 && (
           <>
             <h2 className="ob-q serif">When were you born?</h2>
+            <p className="ob-hint">Your birth date anchors every system in the app, so we ask for it first.</p>
             <DateSelect
               value={form.birth_date}
               onChange={(v) => setForm((current) => ({ ...current, birth_date: v }))}
@@ -178,7 +182,8 @@ export function OnboardingScreen({ form, setForm, onSubmit, loading, error, them
 
         {step === 2 && (
           <>
-            <h2 className="ob-q serif">What time?</h2>
+            <h2 className="ob-q serif">What time were you born?</h2>
+            <p className="ob-hint">Exact time improves accuracy for Vedic, BaZi & Western charts. Check your birth certificate if unsure.</p>
             <input
               type="time"
               step="60"
@@ -239,7 +244,7 @@ export function OnboardingScreen({ form, setForm, onSubmit, loading, error, them
               value={form.full_name}
               onChange={(event) => handleName(event.target.value)}
             />
-            <label className="ob-sublabel" htmlFor="hebrew-name">Hebrew name (optional)</label>
+            <label className="ob-sublabel" htmlFor="hebrew-name">Hebrew name (optional — used for Kabbalistic & Gematria readings)</label>
             <input
               id="hebrew-name"
               type="text"

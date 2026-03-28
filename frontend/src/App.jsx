@@ -5,7 +5,7 @@ import { BLANK, FORM_KEY, MOTION_KEY, ORACLE_HISTORY_KEY, RESULT_KEY, SPLASH_KEY
 import { apiPost, apiGet, trackEvent } from './app/api.js';
 import { runSecurityChecks } from './app/security.js';
 import { styles } from './app/styles.js';
-import { readStoredForm, readStoredResult, safeGet, safeRemove, safeSet } from './app/storage.js';
+import { isValidReading, readStoredForm, readStoredResult, safeGet, safeRemove, safeSet } from './app/storage.js';
 import { useMotionMode } from './hooks/useMotionMode.js';
 import { LoadingOverlay } from './components/LoadingOverlay.jsx';
 import { OnboardingScreen } from './components/OnboardingScreen.jsx';
@@ -95,6 +95,7 @@ export default function App() {
   }, [form]);
 
   const handleBackButton = useCallback(() => {
+    if (view === 'onboarding' && result) { setView('main'); return; }
     if (view !== 'main') return;
     if (detailSystem) { setDetailSystem(null); return; }
     if (settingsOpen) { setSettingsOpen(false); return; }
@@ -130,6 +131,10 @@ export default function App() {
 
     try {
       const payload = await apiPost('reading', form);
+
+      if (!isValidReading(payload)) {
+        throw new Error('Received an incomplete reading. Please try again.');
+      }
 
       setResult(payload);
       safeSet(RESULT_KEY, JSON.stringify(payload));
@@ -203,6 +208,7 @@ export default function App() {
           form={form}
           setForm={setForm}
           onSubmit={handleGenerate}
+          onCancel={result ? () => { setView('main'); } : undefined}
           loading={loading}
           error={error}
           theme={theme}
