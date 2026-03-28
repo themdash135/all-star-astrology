@@ -387,7 +387,7 @@ input:focus-visible,
 
 /* ── Cosmic DNA ── */
 .dna-section { margin-bottom:24px; }
-.dna-scroll { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; scrollbar-width:none; -ms-overflow-style:none; }
+.dna-scroll { display:flex; gap:8px; overflow-x:auto; padding:0 20px 4px 0; scrollbar-width:none; -ms-overflow-style:none; }
 .dna-scroll::-webkit-scrollbar { display:none; }
 .dna-pill { border-radius:20px; padding:8px 14px; display:flex; align-items:center; gap:6px; white-space:nowrap; flex-shrink:0; }
 .dna-sym { font-size:.95rem; }
@@ -1710,6 +1710,7 @@ input:focus-visible,
 .prow-theme { display:flex; gap:var(--sp-xs); }
 .prow-theme-btn { padding:var(--sp-sm) var(--sp-lg); border-radius:var(--r-sm); font-size:var(--fs-sm); font-weight:600; color:var(--muted); background:var(--bg2); border:1px solid var(--glass-border); transition:all var(--dur-normal); }
 .prow-theme-btn--on { color:var(--gold); border-color:var(--gold); background:rgba(212,165,116,.06); }
+.prow-coming-soon { font-size:var(--fs-sm); color:var(--muted); font-style:italic; }
 .segmented { display:flex; gap:var(--sp-sm); flex-wrap:wrap; justify-content:flex-end; }
 .segmented-btn { padding:var(--sp-sm) var(--sp-md); border-radius:var(--r-full); font-size:var(--fs-sm); font-weight:600; color:var(--muted); background:var(--bg2); border:1px solid var(--glass-border); transition:all var(--dur-normal); }
 .segmented-btn--on { color:var(--gold); border-color:var(--gold); background:rgba(212,165,116,.06); }
