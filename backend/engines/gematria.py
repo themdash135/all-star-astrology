@@ -30,6 +30,97 @@ ROOT_THEMES = {
     33: "service and guidance",
 }
 
+ROOT_DESCRIPTIONS: dict[int, str] = {
+    1: (
+        "Root 1 is the origin point — leadership, independence, and pioneering spirit. "
+        "A person with this root is here to initiate, to stand at the front of the line, "
+        "and to carve paths that did not exist before."
+    ),
+    2: (
+        "Root 2 is the mirror — partnership, balance, and receptivity. "
+        "A person with this root is here to connect, to mediate, and to find truth "
+        "in the space between two perspectives."
+    ),
+    3: (
+        "Root 3 is the voice — expression, creativity, and communicative brilliance. "
+        "A person with this root is here to turn inner visions into words, art, "
+        "or performances that move others."
+    ),
+    4: (
+        "Root 4 is the foundation — structure, discipline, and embodied order. "
+        "A person with this root is here to build things that last, to bring "
+        "stability where chaos reigns."
+    ),
+    5: (
+        "Root 5 is the threshold — change, freedom, and restless movement. "
+        "A person with this root is here to break stagnation, to explore, "
+        "and to catalyze transformation wherever they go."
+    ),
+    6: (
+        "Root 6 is the heart — harmony, beauty, and nurturing care. "
+        "A person with this root is here to heal, to beautify, and to create "
+        "environments where others feel loved and safe."
+    ),
+    7: (
+        "Root 7 is the seeker — study, solitude, and spiritual searching. "
+        "A person with this root is here to go deep, to question assumptions, "
+        "and to bring back wisdom from inner exploration."
+    ),
+    8: (
+        "Root 8 is the executive — power, material mastery, and organizational force. "
+        "A person with this root is here to manage resources, build empires, "
+        "and turn vision into tangible abundance."
+    ),
+    9: (
+        "Root 9 is the sage — completion, universal compassion, and humanitarianism. "
+        "A person with this root is here to serve the whole, to close cycles with grace, "
+        "and to embody wisdom earned through experience."
+    ),
+    11: (
+        "Root 11 is the intuitive channel — doubled sensitivity, visionary insight, "
+        "and a direct line to the unseen. A person with this root receives impressions "
+        "that others miss, but must learn to ground them."
+    ),
+    22: (
+        "Root 22 is the master builder — the ability to manifest grand visions on "
+        "the material plane. A person with this root combines spiritual understanding "
+        "with practical engineering on a large scale."
+    ),
+    33: (
+        "Root 33 is the master teacher — selfless service, healing guidance, and "
+        "the capacity to uplift communities. A person with this root is called to "
+        "lead through compassion and lived example."
+    ),
+}
+
+GATE_TIMING: dict[int, str] = {
+    1: "new beginnings, self-assertion, and launching independent ventures. It is a year to start something entirely your own.",
+    2: "patience, cooperation, and behind-the-scenes partnership. It is a year to listen deeply and let alliances form.",
+    3: "creative expression, social visibility, and joyful communication. It is a year to put your voice into the world.",
+    4: "hard work, foundations, and methodical progress. It is a year to build brick by brick without shortcuts.",
+    5: "freedom, change, and unexpected openings. It is a year when restlessness leads to breakthroughs if you lean into it.",
+    6: "home, family, and responsibility to those you love. It is a year to nurture relationships and create beauty.",
+    7: "reflection, inner work, and spiritual deepening. It is a year to study, rest, and trust the unseen process.",
+    8: "power, material mastery, and financial momentum. When your roots harmonize with this gate, career and financial energy flows most freely.",
+    9: "completion, release, and compassionate closure. It is a year to finish what was started and let go of what no longer serves.",
+    11: "heightened intuition, inspiration, and illumination. It is a year when subtle signals carry more weight than loud actions.",
+    22: "ambitious manifestation and large-scale building. It is a year when disciplined effort can produce lasting legacy.",
+    33: "selfless service, teaching, and healing. It is a year when your greatest fulfillment comes through lifting others.",
+}
+
+RESONANCE_THEMES: dict[int, str] = {
+    0: ("neutrality and the void", "a pause before new meaning crystallizes"),
+    1: ("singular purpose and divine unity", "a vibration that stands alone and leads"),
+    2: ("duality and sacred partnership", "the interplay of opposites seeking balance"),
+    3: ("creative trinity and joyful expression", "the triangle of creation, sustenance, and transformation"),
+    4: ("earthly stability and the four directions", "a call to ground vision into structure"),
+    5: ("dynamic change and the five senses", "the body's wisdom meeting the soul's restlessness"),
+    6: ("harmony, the Star of David, and covenant", "a vibration of responsibility and love"),
+    7: ("mystery, the sabbath, and inner completion", "the sacred number of rest, reflection, and spiritual law"),
+    8: ("infinity, abundance, and karmic balance", "a vibration that circulates power and consequence"),
+    9: ("universal compassion and the end of cycles", "the final single digit, carrying all that came before"),
+}
+
 
 def _digit_sum(value: str | int) -> int:
     return sum(int(char) for char in str(value) if char.isdigit())
@@ -139,11 +230,50 @@ def calculate(context: dict[str, Any]) -> dict[str, Any]:
         highlight("Current gate", current_gate),
     ]
 
+    # Build resonance interpretation from the gematria total
+    resonance_root = breakdown["total"] % 10 if breakdown["total"] else 0
+    resonance_themes, resonance_interp = RESONANCE_THEMES.get(
+        resonance_root, ("symbolic patterning", "a unique numerical vibration")
+    )
+
     insights = [
-        insight("Phrase root", f"The text root is {text_root}, which points toward {ROOT_THEMES.get(text_root, 'symbolic patterning')}"),
-        insight("Bridge logic", f"The bridge root is formed by combining gematria total {breakdown['total']} with birth-date digits {birth_digits}. It is treated as the joined personal-symbolic signature."),
-        insight("Current timing", f"The current yearly gate is {current_gate}. When roots match that gate, the engine boosts coherence across the score set."),
-        insight("Method", "This engine focuses on phrase values and root alignment. It does not reuse the sefirah and path-gate method from the Kabbalistic tab."),
+        insight(
+            "Phrase root",
+            f"The text root is {text_root}, which points toward "
+            f"{ROOT_THEMES.get(text_root, 'symbolic patterning')}. "
+            f"{ROOT_DESCRIPTIONS.get(text_root, '')}"
+        ),
+        insight(
+            "Bridge logic",
+            f"The bridge root is formed by combining gematria total "
+            f"{breakdown['total']} with birth-date digits {birth_digits}, "
+            f"yielding bridge root {bridge_root}. "
+            f"Bridge root {bridge_root} connects your name vibration to "
+            f"{ROOT_THEMES.get(bridge_root, 'symbolic patterning')}. "
+            f"{ROOT_DESCRIPTIONS.get(bridge_root, '')} "
+            f"It suggests your personal identity serves a purpose aligned with "
+            f"that energy."
+        ),
+        insight(
+            "Resonance",
+            f"Your gematria total of {breakdown['total']} resonates with themes "
+            f"of {resonance_themes}. In the Hebrew tradition, numbers of this "
+            f"magnitude point to {resonance_interp}. The reduced root "
+            f"{text_root} distills this into a single directive: "
+            f"{ROOT_THEMES.get(text_root, 'symbolic patterning')}."
+        ),
+        insight(
+            "Current timing",
+            f"Current gate {current_gate} aligns with themes of "
+            f"{GATE_TIMING.get(current_gate, 'symbolic transition and recalibration.')} "
+            f"When your roots harmonize with this gate, the corresponding life "
+            f"areas receive an extra boost of coherence and momentum."
+        ),
+        insight(
+            "Method",
+            "This engine focuses on phrase values and root alignment. It does not "
+            "reuse the sefirah and path-gate method from the Kabbalistic tab."
+        ),
     ]
 
     return {

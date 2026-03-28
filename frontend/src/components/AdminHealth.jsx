@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { adminFetch } from './AdminApp.jsx';
 
+const AUTO_REFRESH_SECONDS = 30;
+
 function formatTimestamp(ts) {
-  if (!ts) return '—';
+  if (!ts) return '\u2014';
   try {
     const d = new Date(ts);
     return d.toLocaleString();
@@ -14,21 +16,34 @@ function formatTimestamp(ts) {
 function cardVariant(value, okThreshold, warnThreshold, invert) {
   if (value == null) return '';
   if (invert) {
-    // Lower is better (e.g. errors): 0 is ok, low is warn, high is bad
     if (value <= 0) return 'admin-card--ok';
     if (value <= warnThreshold) return 'admin-card--warn';
     return 'admin-card--bad';
   }
-  // Higher is better (e.g. success rate)
   if (value >= okThreshold) return 'admin-card--ok';
   if (value >= warnThreshold) return 'admin-card--warn';
   return 'admin-card--bad';
+}
+
+/** Color-code response time: <500ms green, 500-2000ms amber, >2000ms red */
+function responseTimeVariant(ms) {
+  if (ms == null) return '';
+  if (ms < 500) return 'admin-card--fast';
+  if (ms <= 2000) return 'admin-card--moderate';
+  return 'admin-card--slow';
 }
 
 export function AdminHealth() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [backendOnline, setBackendOnline] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [secondsAgo, setSecondsAgo] = useState(0);
+  const [countdown, setCountdown] = useState(AUTO_REFRESH_SECONDS);
+  const [expandedErrors, setExpandedErrors] = useState({});
+  const countdownRef = useRef(null);
+  const tickRef = useRef(null);
 
   const fetchHealth = useCallback(async () => {
     setLoading(true);
@@ -36,18 +51,52 @@ export function AdminHealth() {
     try {
       const result = await adminFetch('health');
       setData(result);
+      setBackendOnline(true);
+      setLastUpdated(Date.now());
+      setSecondsAgo(0);
+      setCountdown(AUTO_REFRESH_SECONDS);
     } catch (err) {
+      setBackendOnline(false);
       setError(err.message || 'Failed to load health data');
     } finally {
       setLoading(false);
     }
   }, []);
 
+  // Initial fetch
   useEffect(() => {
     fetchHealth();
   }, [fetchHealth]);
 
-  if (loading) {
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    countdownRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          fetchHealth();
+          return AUTO_REFRESH_SECONDS;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(countdownRef.current);
+  }, [fetchHealth]);
+
+  // Update "seconds ago" ticker
+  useEffect(() => {
+    tickRef.current = setInterval(() => {
+      if (lastUpdated) {
+        setSecondsAgo(Math.round((Date.now() - lastUpdated) / 1000));
+      }
+    }, 1000);
+    return () => clearInterval(tickRef.current);
+  }, [lastUpdated]);
+
+  function toggleErrorExpanded(index) {
+    setExpandedErrors((prev) => ({ ...prev, [index]: !prev[index] }));
+  }
+
+  if (loading && !data) {
     return (
       <div className="admin-page">
         <h2 className="admin-title">Health Dashboard</h2>
@@ -56,12 +105,16 @@ export function AdminHealth() {
     );
   }
 
-  if (error) {
+  if (error && !data) {
     return (
       <div className="admin-page">
+        <div className="admin-status-bar">
+          <div className="admin-status-dot admin-status-dot--offline" />
+          <span className="admin-status-text admin-status-text--offline">Offline</span>
+        </div>
         <h2 className="admin-title">Health Dashboard</h2>
         <p className="admin-empty">{error}</p>
-        <button className="admin-card" onClick={fetchHealth} style={{ cursor: 'pointer', marginTop: '1rem' }}>
+        <button className="admin-refresh-btn" onClick={fetchHealth} style={{ marginTop: '1rem' }}>
           Retry
         </button>
       </div>
@@ -83,7 +136,29 @@ export function AdminHealth() {
 
   return (
     <div className="admin-page">
-      <h2 className="admin-title">Health Dashboard</h2>
+      {/* Backend status indicator */}
+      <div className="admin-status-bar">
+        <div className={`admin-status-dot admin-status-dot--${backendOnline ? 'online' : 'offline'}`} />
+        <span className={`admin-status-text admin-status-text--${backendOnline ? 'online' : 'offline'}`}>
+          {backendOnline ? 'Online' : 'Offline'}
+        </span>
+        {lastUpdated && (
+          <span className="admin-last-updated">
+            Last updated: {secondsAgo}s ago
+          </span>
+        )}
+        <span className="admin-countdown">
+          Next refresh in {countdown}s
+        </span>
+      </div>
+
+      {/* Header with refresh */}
+      <div className="admin-header-row">
+        <h2 className="admin-title" style={{ margin: 0 }}>Health Dashboard</h2>
+        <button className="admin-refresh-btn" onClick={fetchHealth} disabled={loading}>
+          {loading ? 'Refreshing...' : 'Refresh'}
+        </button>
+      </div>
 
       <div className="admin-cards">
         <div className={`admin-card ${cardVariant(totalGen24, 10, 1, false)}`}>
@@ -106,23 +181,23 @@ export function AdminHealth() {
           <div className="admin-card__label">Errors (7d)</div>
         </div>
 
-        <div className="admin-card">
+        <div className={`admin-card ${responseTimeVariant(avgMs != null ? Math.round(avgMs) : null)}`}>
           <div className="admin-card__value">
-            {avgMs != null ? Math.round(avgMs) : '—'}
+            {avgMs != null ? Math.round(avgMs) : '\u2014'}
           </div>
           <div className="admin-card__label">Avg Response (ms)</div>
         </div>
 
-        <div className="admin-card">
+        <div className={`admin-card ${responseTimeVariant(slowestMs != null ? Math.round(slowestMs) : null)}`}>
           <div className="admin-card__value">
-            {slowestMs != null ? Math.round(slowestMs) : '—'}
+            {slowestMs != null ? Math.round(slowestMs) : '\u2014'}
           </div>
           <div className="admin-card__label">Slowest Response (ms)</div>
         </div>
 
         <div className={`admin-card ${cardVariant(successRate7d != null ? successRate7d * 100 : null, 95, 80, false)}`}>
           <div className="admin-card__value">
-            {successRate7d != null ? `${(successRate7d * 100).toFixed(1)}%` : '—'}
+            {successRate7d != null ? `${(successRate7d * 100).toFixed(1)}%` : '\u2014'}
           </div>
           <div className="admin-card__label">Success Rate (7d)</div>
         </div>
@@ -142,13 +217,29 @@ export function AdminHealth() {
             </tr>
           </thead>
           <tbody>
-            {recentErrors.map((err, i) => (
-              <tr key={i}>
-                <td>{formatTimestamp(err.timestamp)}</td>
-                <td>{err.endpoint || '—'}</td>
-                <td>{err.error || '—'}</td>
-              </tr>
-            ))}
+            {recentErrors.map((err, i) => {
+              const isExpanded = !!expandedErrors[i];
+              const errorText = err.error || '\u2014';
+              const isLong = errorText.length > 80;
+              return (
+                <tr
+                  key={i}
+                  className={isLong ? 'admin-error-row' : ''}
+                  onClick={isLong ? () => toggleErrorExpanded(i) : undefined}
+                >
+                  <td>{formatTimestamp(err.timestamp)}</td>
+                  <td>{err.endpoint || '\u2014'}</td>
+                  <td>
+                    <div className={`admin-error-text ${isExpanded ? 'admin-error-text--expanded' : isLong ? 'admin-error-text--truncated' : ''}`}>
+                      {errorText}
+                    </div>
+                    {isLong && !isExpanded && (
+                      <span className="admin-expand-hint">click to expand</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}

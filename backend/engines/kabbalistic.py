@@ -58,6 +58,84 @@ SEFIRAH_THEMES = {
     10: "material grounding and practical manifestation",
 }
 
+SEFIRAH_DESCRIPTIONS: dict[str, str] = {
+    "Keter": (
+        "Keter is the crown — the sphere of pure potential, divine will, and the "
+        "unknowable source. When Keter dominates, you are driven by an inner compass "
+        "that transcends logic. Your strength is vision that others cannot yet see."
+    ),
+    "Chokmah": (
+        "Chokmah is the sphere of wisdom, the first flash of insight before it takes "
+        "form. When Chokmah dominates, you receive ideas whole — in bursts of intuition "
+        "rather than steps. Your strength is originating what has never been tried."
+    ),
+    "Binah": (
+        "Binah is the sphere of understanding, analysis, and deep structure. When Binah "
+        "dominates, you process experience through careful categorization and long-range "
+        "thinking. Your strength is seeing the architecture behind surface events."
+    ),
+    "Chesed": (
+        "Chesed is the sphere of mercy, generosity, and expansive love. When Chesed "
+        "dominates, you lead through kindness and abundance. Your strength is inspiring "
+        "loyalty and opening doors that force alone cannot."
+    ),
+    "Gevurah": (
+        "Gevurah is the sphere of discipline, boundaries, and focused strength. When "
+        "Gevurah dominates, you excel at cutting away what does not serve the goal. "
+        "Your strength is saying no at the right moment and holding standards."
+    ),
+    "Tiferet": (
+        "Tiferet is the sphere of beauty, balance, and heart-centered integration. When "
+        "Tiferet dominates, you harmonize opposites and find the center in conflict. "
+        "Your strength is being a meeting point where head and heart agree."
+    ),
+    "Netzach": (
+        "Netzach is the sphere of desire, artistry, and relational magnetism. When "
+        "Netzach dominates, you feel life through passion, aesthetics, and emotional "
+        "intensity. Your strength is persistence fueled by genuine wanting."
+    ),
+    "Hod": (
+        "Hod is the sphere of intellect, communication, and strategy on the Tree of "
+        "Life. When Hod dominates, you process the world through analysis and language. "
+        "Your strength is making the complex understandable."
+    ),
+    "Yesod": (
+        "Yesod is the sphere of bonding, memory, and the emotional foundation that "
+        "connects inner life to outer reality. When Yesod dominates, your relationships "
+        "and habits form the bedrock of everything you build."
+    ),
+    "Malkuth": (
+        "Malkuth is the sphere of material manifestation, grounding, and embodied "
+        "presence. When Malkuth dominates, you are most alive when results are tangible. "
+        "Your strength is turning vision into something real and lasting."
+    ),
+}
+
+PATH_DESCRIPTIONS: dict[str, str] = {
+    "Aleph": "Aleph is the silent breath — infinite potential before the first word is spoken. It marks a moment of pure beginning.",
+    "Beth": "Beth is the house — form, containment, and the first act of creation giving shape to the formless.",
+    "Gimel": "Gimel is the camel crossing the desert — movement, exchange, and the journey between giver and receiver.",
+    "Daleth": "Daleth is the door — threshold, receptivity, and the willingness to let something new enter your life.",
+    "He": "He is the window — revelation, divine breath, and the emergence of hidden truth into awareness.",
+    "Vav": "Vav is the hook — bonding, linkage, and the connective tissue that holds different worlds together.",
+    "Zayin": "Zayin is the sword — discernment, purposeful tension, and the ability to cut through confusion.",
+    "Cheth": "Cheth is the fence — sacred containment, memory, and the protective boundary around what matters most.",
+    "Teth": "Teth is the serpent — hidden strength coiled within, the cultivated power that reveals itself only when needed.",
+    "Yod": "Yod is the seed — concentrated essence, the smallest point containing the pattern of all that follows.",
+    "Kaph": "Kaph is the open palm — capacity, shaping, and the ability to receive, hold, and transmit energy.",
+    "Lamed": "Lamed is the ox-goad — aspiration, learning, and the upward drive that pushes past comfort into growth.",
+    "Mem": "Mem is the water — depth, intuition, and the gestation period where insights form beneath the surface.",
+    "Nun": "Nun is the fish — renewal, descent into the deep, and the regeneration that follows every ending.",
+    "Samekh": "Samekh is the prop — support, trust, and the centered stability that holds you steady in turbulence.",
+    "Ayin": "Ayin is the eye — perception, insight, and the appetite for experience that drives personal evolution.",
+    "Pe": "Pe is the mouth — expression, revelation, and the power of speech to create and destroy in equal measure.",
+    "Tzaddi": "Tzaddi is the fishhook — integrity, discipline, and the refinement that comes from staying true to purpose.",
+    "Qoph": "Qoph is the back of the head — dream, imagination, and the subconscious realm where symbols speak louder than logic.",
+    "Resh": "Resh is the head — mind, attention, and the illumination that comes from focused awareness.",
+    "Shin": "Shin is the fire — transformation, divine will, and the purifying flame that burns away the inessential.",
+    "Tav": "Tav represents completion, truth, and the mark of cosmic wholeness. It is the final seal on the journey through all the paths.",
+}
+
 
 def _digit_sum(value: str | int) -> int:
     return sum(int(char) for char in str(value) if char.isdigit())
@@ -211,12 +289,82 @@ def calculate(context: dict[str, Any]) -> dict[str, Any]:
         highlight("Personality sefirah", SEFIROT[personality_sefirah]),
     ]
 
+    # Detect sefirot convergence (two or three of birth/name/cycle matching)
+    sefirah_trio = [birth_sefirah, name_sefirah, cycle_sefirah]
+    convergence_note = ""
+    if sefirah_trio[0] == sefirah_trio[1] == sefirah_trio[2]:
+        convergence_note = (
+            f"All three of your core sefirot converge on {SEFIROT[birth_sefirah]} — "
+            f"this is a rare and powerful alignment that amplifies its themes. "
+            f"Birth, name, and current cycle all resonate with "
+            f"{SEFIRAH_THEMES[birth_sefirah]}, creating an unmistakable signature."
+        )
+    elif sefirah_trio[0] == sefirah_trio[1]:
+        convergence_note = (
+            f"Your birth and name sefirot both point to {SEFIROT[birth_sefirah]}, "
+            f"doubling the emphasis on {SEFIRAH_THEMES[birth_sefirah]}. "
+            f"Identity and life path speak the same symbolic language."
+        )
+    elif sefirah_trio[0] == sefirah_trio[2]:
+        convergence_note = (
+            f"Your birth sefirah and current cycle both land on {SEFIROT[birth_sefirah]}, "
+            f"doubling the emphasis on {SEFIRAH_THEMES[birth_sefirah]}. "
+            f"This year's energy mirrors your core incarnation tone."
+        )
+    elif sefirah_trio[1] == sefirah_trio[2]:
+        convergence_note = (
+            f"Your name sefirah and current cycle both land on {SEFIROT[name_sefirah]}, "
+            f"doubling the emphasis on {SEFIRAH_THEMES[name_sefirah]}. "
+            f"The yearly gate amplifies what your name already vibrates toward."
+        )
+
+    birth_sefirah_name = SEFIROT[birth_sefirah]
+    cycle_sefirah_name = SEFIROT[cycle_sefirah]
+    name_path_letter = TREE_PATHS[name_path][0]
+    cycle_path_letter = TREE_PATHS[cycle_path][0]
+
     insights = [
-        insight("Birth sefirah", f"{SEFIROT[birth_sefirah]} describes the main incarnation tone in this reading and carries themes of {SEFIRAH_THEMES[birth_sefirah]}"),
-        insight("Name vibration", f"The active text source is '{source_text or context['birth_location']}', producing total {name_total or 0} and path {TREE_PATHS[name_path][0]}"),
-        insight("Current gate", f"The present-year gate is {SEFIROT[cycle_sefirah]} with path {TREE_PATHS[cycle_path][0]}, which sets the live probability tone."),
-        insight("Method", "This engine uses Chaldean totals, sefirot correspondences, and 22 symbolic path gates rather than the Pythagorean table used in the general numerology tab."),
+        insight(
+            "Birth sefirah",
+            f"{birth_sefirah_name} describes the main incarnation tone in this reading "
+            f"and carries themes of {SEFIRAH_THEMES[birth_sefirah]}. "
+            f"{SEFIRAH_DESCRIPTIONS.get(birth_sefirah_name, '')}"
+        ),
+        insight(
+            "Name vibration",
+            f"The active text source is '{source_text or context['birth_location']}', "
+            f"producing total {name_total or 0} and path {name_path_letter}. "
+            f"{PATH_DESCRIPTIONS.get(name_path_letter, '')} "
+            f"Your name sefirah is {SEFIROT[name_sefirah]}: "
+            f"{SEFIRAH_DESCRIPTIONS.get(SEFIROT[name_sefirah], '')}"
+        ),
+        insight(
+            "Current gate",
+            f"The present-year gate is {cycle_sefirah_name} with path {cycle_path_letter}, "
+            f"which sets the live probability tone. "
+            f"{PATH_DESCRIPTIONS.get(cycle_path_letter, '')} "
+            f"Under {cycle_sefirah_name}, the year emphasizes "
+            f"{SEFIRAH_THEMES[cycle_sefirah]}."
+        ),
     ]
+
+    if convergence_note:
+        insights.append(insight("Sefirot alignment", convergence_note))
+
+    # Add soul and personality path interpretations
+    soul_path_letter = TREE_PATHS[soul_path][0]
+    insights.append(insight(
+        "Soul path",
+        f"Your soul path is {soul_path_letter}. "
+        f"{PATH_DESCRIPTIONS.get(soul_path_letter, '')} "
+        f"This represents the inner longing that drives you beneath conscious awareness."
+    ))
+
+    insights.append(insight(
+        "Method",
+        "This engine uses Chaldean totals, sefirot correspondences, and 22 symbolic "
+        "path gates rather than the Pythagorean table used in the general numerology tab."
+    ))
 
     return {
         "id": "kabbalistic",

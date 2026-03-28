@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { SYSTEMS } from '../app/constants.js';
+import { readStoredForm } from '../app/storage.js';
 import { IconSettings } from './common.jsx';
 
 const V2_SYSTEMS = SYSTEMS.map(s => ({ id: s.id, name: s.name, color: `var(--sys-${s.id})` }));
@@ -156,6 +157,7 @@ function ScoreDotPlot({ result, scores }) {
   return (
     <div className="v2-dotplot-section">
       <div className="v2-section-label">Life Area Scores</div>
+      <div className="v2-section-explainer">{"How today\u2019s cosmic energy affects each area of your life"}</div>
       {rows.map(r => (
         <div key={r.key} className="v2-dotplot-row">
           <span className="v2-dotplot-label">{r.label}</span>
@@ -187,17 +189,34 @@ export function TodayTab({ result, temporal, scores, onOpenSettings, onAnalysis 
   const cautionArea = daily?.caution;
   const anchor = daily?.anchor;
 
+  // Derive greeting from stored form data
+  const firstName = useMemo(() => {
+    const form = readStoredForm();
+    const name = (form?.full_name || '').trim();
+    return name ? name.split(/\s+/)[0] : '';
+  }, []);
+
+  const greeting = useMemo(() => {
+    const h = now.getHours();
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  }, []);
+
   return (
     <div className="page fade-in">
       <div className="v2-today-header">
         <StatusLine temporal={temporal} />
         {onOpenSettings && (
-          <button type="button" className="oracle-settings-btn" onClick={onOpenSettings} aria-label="Settings">
+          <button type="button" className="v2-settings-btn" onClick={onOpenSettings} aria-label="Settings">
             <IconSettings />
           </button>
         )}
       </div>
 
+      {firstName && (
+        <div className="v2-today-greeting serif">{greeting}, {firstName}</div>
+      )}
       <div className="v2-today-date serif">{dateStr}</div>
       <div className="v2-today-sub">{"Today\u2019s reading across eight astrological traditions"}</div>
 
@@ -205,44 +224,7 @@ export function TodayTab({ result, temporal, scores, onOpenSettings, onAnalysis 
 
       <ScoreDotPlot result={result} scores={scores} />
 
-      {daily && (
-        <>
-          <div className="v2-daily-quote serif">
-            {typeof daily.message === 'string' ? daily.message : 'The stars speak.'}
-          </div>
-
-          <div className="v2-daily-meta">
-            {focusArea && typeof focusArea === 'object' && (
-              <>Focus: <strong>{focusArea.label || focusArea.area || 'Unknown'}</strong> ({focusArea.score || focusArea.value || ''}%). </>
-            )}
-            {focusArea && typeof focusArea === 'string' && (
-              <>Focus: <strong>{focusArea}</strong>. </>
-            )}
-            {cautionArea && typeof cautionArea === 'object' && (
-              <>Handle <strong>{cautionArea.label || cautionArea.area || ''}</strong> gently. </>
-            )}
-            {cautionArea && typeof cautionArea === 'string' && (
-              <>Handle <strong>{cautionArea}</strong> gently. </>
-            )}
-            {anchor && typeof anchor === 'object' && (
-              <>Anchor: {anchor.label} {'\u2014'} {anchor.value}.</>
-            )}
-            {anchor && typeof anchor === 'string' && anchor}
-          </div>
-        </>
-      )}
-
-      {onAnalysis && result?.combined && (
-        <button type="button" className="fca2-today-cta" onClick={onAnalysis}>
-          <span className="fca2-today-cta-icon">◈</span>
-          <span className="fca2-today-cta-text">
-            <strong>View Full Cosmic Intelligence Report</strong>
-            <span>8 systems converged · Neuro-Symbolic AI</span>
-          </span>
-          <span className="fca2-today-cta-arrow">→</span>
-        </button>
-      )}
-
+      {/* Do / Don't moved above the CTA so it doesn't get buried */}
       {daily && (Array.isArray(daily.dos) || Array.isArray(daily.donts)) && (
         <div className="v2-dodont">
           <div className="v2-dodont-col do">
@@ -258,6 +240,46 @@ export function TodayTab({ result, temporal, scores, onOpenSettings, onAnalysis 
             ))}
           </div>
         </div>
+      )}
+
+      {daily && (
+        <>
+          <div className="v2-daily-quote serif">
+            {typeof daily.message === 'string' ? daily.message : 'The stars speak.'}
+          </div>
+
+          <div className="v2-daily-pills">
+            {focusArea && typeof focusArea === 'object' && (
+              <span className="v2-pill v2-pill--focus">Focus: {focusArea.label || focusArea.area || 'Unknown'} ({focusArea.score || focusArea.value || ''}%)</span>
+            )}
+            {focusArea && typeof focusArea === 'string' && (
+              <span className="v2-pill v2-pill--focus">Focus: {focusArea}</span>
+            )}
+            {cautionArea && typeof cautionArea === 'object' && (
+              <span className="v2-pill v2-pill--caution">Handle {cautionArea.label || cautionArea.area || ''} gently</span>
+            )}
+            {cautionArea && typeof cautionArea === 'string' && (
+              <span className="v2-pill v2-pill--caution">Handle {cautionArea} gently</span>
+            )}
+            {anchor && typeof anchor === 'object' && (
+              <span className="v2-pill v2-pill--anchor">{anchor.label} {'\u2014'} {anchor.value}</span>
+            )}
+            {anchor && typeof anchor === 'string' && (
+              <span className="v2-pill v2-pill--anchor">{anchor}</span>
+            )}
+          </div>
+        </>
+      )}
+
+      {onAnalysis && result?.combined && (
+        <button type="button" className="fca2-today-cta" onClick={onAnalysis}>
+          <span className="fca2-today-cta-icon">{'\u25C8'}</span>
+          <span className="fca2-today-cta-text">
+            <strong>View Full Cosmic Intelligence Report</strong>
+            <span>8 systems converged {'\u00B7'} Neuro-Symbolic AI</span>
+          </span>
+          <span className="fca2-today-cta-arrow">{'\u2192'}</span>
+        </button>
       )}
     </div>
   );

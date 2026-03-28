@@ -11,10 +11,37 @@ function formatDate(ts) {
   }
 }
 
+function formatShortDate(ts) {
+  if (!ts) return null;
+  try {
+    return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  } catch {
+    return null;
+  }
+}
+
 function shortId(id) {
   if (!id) return '—';
   if (id.length <= 16) return id;
   return id.slice(0, 14) + '...';
+}
+
+/** Map a flag name to a badge CSS class */
+function flagBadgeClass(flag) {
+  if (!flag) return 'admin-badge--flag-default';
+  const f = flag.toLowerCase();
+  if (f.includes('missing')) return 'admin-badge--flag-missing';
+  if (f.includes('short'))   return 'admin-badge--flag-short';
+  if (f.includes('truncat')) return 'admin-badge--flag-truncated';
+  if (f.includes('fallback')) return 'admin-badge--flag-fallback';
+  return 'admin-badge--flag-default';
+}
+
+/** Fallback count CSS class */
+function fallbackClass(count) {
+  if (count === 0 || count == null) return 'admin-fallback--zero';
+  if (count <= 2) return 'admin-fallback--warn';
+  return 'admin-fallback--bad';
 }
 
 export function AdminQuality({ onInspect }) {
@@ -49,6 +76,23 @@ export function AdminQuality({ onInspect }) {
       return true;
     });
   }, [data, statusFilter, typeFilter]);
+
+  /** Compute the date range of the displayed sessions */
+  const dateRange = useMemo(() => {
+    if (filteredSessions.length === 0) return null;
+    const dates = filteredSessions
+      .map((s) => s.created)
+      .filter(Boolean)
+      .map((d) => new Date(d).getTime())
+      .filter((t) => !isNaN(t));
+    if (dates.length === 0) return null;
+    const earliest = formatShortDate(new Date(Math.min(...dates)));
+    const latest = formatShortDate(new Date(Math.max(...dates)));
+    if (!earliest || !latest) return null;
+    return earliest === latest
+      ? `Showing sessions from ${earliest}`
+      : `Showing sessions from ${earliest} to ${latest}`;
+  }, [filteredSessions]);
 
   if (loading) {
     return (
@@ -110,24 +154,33 @@ export function AdminQuality({ onInspect }) {
       {flagEntries.length > 0 && (
         <>
           <h3 style={{ marginTop: '2rem', marginBottom: '0.75rem' }}>Top Flags</h3>
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Flag</th>
-                <th>Count</th>
-              </tr>
-            </thead>
-            <tbody>
-              {flagEntries.map(([flag, count]) => (
-                <tr key={flag}>
-                  <td>{flag}</td>
-                  <td>{count}</td>
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Flag</th>
+                  <th>Count</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {flagEntries.map(([flag, count]) => (
+                  <tr key={flag}>
+                    <td>
+                      <span className={`admin-badge ${flagBadgeClass(flag)}`}>
+                        {flag.replace(/_/g, ' ')}
+                      </span>
+                    </td>
+                    <td>{count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
+
+      {/* Date range hint */}
+      {dateRange && <p className="admin-date-range">{dateRange}</p>}
 
       {/* Filters */}
       <div className="admin-filter">
@@ -148,6 +201,7 @@ export function AdminQuality({ onInspect }) {
       {filteredSessions.length === 0 ? (
         <p className="admin-empty">No sessions match the current filters</p>
       ) : (
+        <div className="admin-table-wrap">
         <table className="admin-table">
           <thead>
             <tr>
@@ -178,12 +232,29 @@ export function AdminQuality({ onInspect }) {
                     {session.status || 'healthy'}
                   </span>
                 </td>
-                <td>{(session.flags || []).join(', ') || '—'}</td>
-                <td>{session.fallback_count ?? 0}</td>
+                <td>
+                  {(session.flags || []).length > 0 ? (
+                    <span style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      {session.flags.map((flag) => (
+                        <span key={flag} className={`admin-badge ${flagBadgeClass(flag)}`}>
+                          {flag.replace(/_/g, ' ')}
+                        </span>
+                      ))}
+                    </span>
+                  ) : (
+                    <span style={{ color: 'var(--muted)' }}>—</span>
+                  )}
+                </td>
+                <td>
+                  <span className={fallbackClass(session.fallback_count ?? 0)}>
+                    {session.fallback_count ?? 0}
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   );

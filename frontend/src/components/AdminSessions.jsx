@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { adminFetch } from './AdminApp.jsx';
 
 /* ── Helpers ─────────────────────────────────────────────────────── */
@@ -10,6 +10,78 @@ function formatTimestamp(ts) {
   } catch {
     return ts;
   }
+}
+
+/** Map of quality flag names to human-readable descriptions */
+const QUALITY_FLAG_DESCRIPTIONS = {
+  short_summary:       'Summary text is shorter than expected',
+  missing_systems:     'One or more systems failed to produce output',
+  missing_sections:    'One or more compatibility sections are missing',
+  short_systems:       'One or more system outputs are unusually short',
+  short_sections:      'One or more sections have less content than expected',
+  truncated_sections:  'One or more sections appear to be cut off mid-text',
+  high_fallback_count: 'Multiple systems fell back to defaults',
+  missing_daily:       'Daily guidance block is missing',
+  missing_combined:    'Combined consensus section is missing',
+  low_confidence:      'Overall confidence score is below threshold',
+  stale_transit:       'Transit data may be outdated',
+  missing_meta:        'Response metadata is incomplete',
+};
+
+/** Get the description for a flag, with a sensible fallback */
+function flagDescription(flag) {
+  return QUALITY_FLAG_DESCRIPTIONS[flag] || flag.replace(/_/g, ' ');
+}
+
+/** CSS class for duration color coding */
+function durationClass(ms) {
+  if (ms == null) return '';
+  if (ms < 500) return 'admin-duration--fast';
+  if (ms <= 2000) return 'admin-duration--mid';
+  return 'admin-duration--slow';
+}
+
+/** Copy text to clipboard, returns a promise */
+function copyToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+  // Fallback for older browsers / non-HTTPS
+  return new Promise((resolve, reject) => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      resolve();
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
+/** Small copy button with brief "Copied" tooltip */
+function CopyButton({ text }) {
+  const [copied, setCopied] = useState(false);
+  const handleClick = (e) => {
+    e.stopPropagation(); // Don't trigger row click
+    copyToClipboard(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1300);
+    }).catch(() => {});
+  };
+  return (
+    <button className="admin-copy-btn" onClick={handleClick} title="Copy full ID">
+      {copied ? (
+        <span className="admin-copy-btn__tooltip">Copied</span>
+      ) : null}
+      {'\u2398'}
+    </button>
+  );
 }
 
 function statusBadge(status) {
@@ -191,8 +263,9 @@ function SessionDetail({ sessionId, onBack }) {
         <div className="admin-detail__header">
           <div className="admin-detail__meta">
             <span className="admin-detail__meta-label">Session ID</span>
-            <span className="admin-detail__meta-value" style={{ fontSize: 'var(--fs-sm)', wordBreak: 'break-all' }}>
+            <span className="admin-detail__meta-value" style={{ fontSize: 'var(--fs-sm)', wordBreak: 'break-all', display: 'flex', alignItems: 'center', gap: '4px' }}>
               {envelope.session_id || sessionId}
+              <CopyButton text={envelope.session_id || sessionId} />
             </span>
           </div>
           <div className="admin-detail__meta">
@@ -219,7 +292,7 @@ function SessionDetail({ sessionId, onBack }) {
         {quality.flags && quality.flags.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--sp-xs)' }}>
             {quality.flags.map((flag) => (
-              <span key={flag} className="admin-badge admin-badge--review">
+              <span key={flag} className="admin-badge admin-badge--review" title={flagDescription(flag)}>
                 {flag.replace(/_/g, ' ')}
               </span>
             ))}
@@ -435,6 +508,7 @@ function SessionList({ onSelect }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [typeFilter, setTypeFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const fetchSessions = useCallback(async () => {
     setLoading(true);
@@ -454,9 +528,26 @@ function SessionList({ onSelect }) {
 
   useEffect(() => { fetchSessions(); }, [fetchSessions]);
 
+  /** Filter sessions by ID prefix match */
+  const displayedSessions = useMemo(() => {
+    if (!searchQuery.trim()) return sessions;
+    const q = searchQuery.trim().toLowerCase();
+    return sessions.filter((s) => s.session_id && s.session_id.toLowerCase().startsWith(q));
+  }, [sessions, searchQuery]);
+
   return (
     <div className="admin-page">
       <h2 className="admin-title">Sessions Inspector</h2>
+
+      {/* Search input */}
+      <input
+        className="admin-search"
+        type="text"
+        placeholder="Search by session ID..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        style={{ marginBottom: 'var(--sp-md)' }}
+      />
 
       {/* Filter bar */}
       <div className="admin-filter">
@@ -467,7 +558,7 @@ function SessionList({ onSelect }) {
           <option value="compatibility">Compatibility</option>
         </select>
         <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)', marginLeft: 'auto' }}>
-          {total} total
+          {total} total{searchQuery.trim() ? ` (${displayedSessions.length} shown)` : ''}
         </span>
       </div>
 
@@ -485,15 +576,16 @@ function SessionList({ onSelect }) {
       )}
 
       {/* Empty */}
-      {!loading && !error && sessions.length === 0 && (
+      {!loading && !error && displayedSessions.length === 0 && (
         <div className="admin-empty">
           <span className="admin-empty__icon">{'\uD83D\uDCCB'}</span>
-          <span>No sessions found</span>
+          <span>{searchQuery.trim() ? 'No sessions match your search' : 'No sessions found'}</span>
         </div>
       )}
 
       {/* Table */}
-      {!loading && !error && sessions.length > 0 && (
+      {!loading && !error && displayedSessions.length > 0 && (
+        <div className="admin-table-wrap">
         <table className="admin-table">
           <thead>
             <tr>
@@ -506,14 +598,17 @@ function SessionList({ onSelect }) {
             </tr>
           </thead>
           <tbody>
-            {sessions.map((s) => (
+            {displayedSessions.map((s) => (
               <tr
                 key={s.session_id}
                 onClick={() => onSelect(s.session_id)}
                 style={{ cursor: 'pointer' }}
               >
                 <td style={{ fontFamily: 'monospace', fontSize: 'var(--fs-xs)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {s.session_id}
+                  <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                    {s.session_id}
+                    <CopyButton text={s.session_id} />
+                  </span>
                 </td>
                 <td>{typeBadge(s.type)}</td>
                 <td style={{ whiteSpace: 'nowrap' }}>{formatTimestamp(s.timestamp)}</td>
@@ -527,11 +622,16 @@ function SessionList({ onSelect }) {
                     <span style={{ color: 'var(--muted)' }}>{'\u2014'}</span>
                   )}
                 </td>
-                <td>{s.duration_ms != null ? Math.round(s.duration_ms) : '\u2014'}</td>
+                <td>
+                  <span className={durationClass(s.duration_ms)}>
+                    {s.duration_ms != null ? Math.round(s.duration_ms) : '\u2014'}
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   );

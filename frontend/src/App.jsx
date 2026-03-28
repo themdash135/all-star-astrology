@@ -5,7 +5,8 @@ import { BLANK, FORM_KEY, MOTION_KEY, ORACLE_HISTORY_KEY, RESULT_KEY, SPLASH_KEY
 import { apiPost, apiGet, trackEvent } from './app/api.js';
 import { runSecurityChecks } from './app/security.js';
 import { styles } from './app/styles.js';
-import { isValidReading, readStoredForm, readStoredResult, safeGet, safeRemove, safeSet } from './app/storage.js';
+import { isValidReading, readSeenFeedbackResponses, readStoredForm, readStoredResult, safeGet, safeRemove, safeSet, writeSeenFeedbackResponses, getOrCreateFeedbackUserKey } from './app/storage.js';
+import { notifyResolvedFeedback } from './app/notifications.js';
 import { useMotionMode } from './hooks/useMotionMode.js';
 import { LoadingOverlay } from './components/LoadingOverlay.jsx';
 import { OnboardingScreen } from './components/OnboardingScreen.jsx';
@@ -93,6 +94,55 @@ export default function App() {
   useEffect(() => {
     safeSet(FORM_KEY, JSON.stringify(form));
   }, [form]);
+
+  useEffect(() => {
+    const userId = getOrCreateFeedbackUserKey();
+    let cancelled = false;
+
+    async function checkFeedbackUpdates() {
+      try {
+        const payload = await apiGet(`feedback/check?user_id=${encodeURIComponent(userId)}&email=${encodeURIComponent(userId)}`);
+        if (cancelled) return;
+        const seen = new Set(readSeenFeedbackResponses());
+        const resolved = [];
+        const resolvedIds = [];
+
+        for (const ticket of payload.tickets || []) {
+          for (const response of ticket.responses || []) {
+            const responseId = response.id || `${ticket.id}:${response.created}:${response.message}`;
+            if (seen.has(responseId)) {
+              continue;
+            }
+            if (response.status === 'resolved') {
+              resolved.push({
+                id: ticket.id,
+                category: ticket.category,
+                latestResponse: { ...response, id: responseId },
+              });
+              resolvedIds.push(responseId);
+            } else {
+              seen.add(responseId);
+            }
+          }
+        }
+
+        if (resolved.length > 0) {
+          const notified = await notifyResolvedFeedback(resolved);
+          if (notified) {
+            resolvedIds.forEach((id) => seen.add(id));
+          }
+        }
+        writeSeenFeedbackResponses([...seen]);
+      } catch {}
+    }
+
+    checkFeedbackUpdates();
+    const interval = window.setInterval(checkFeedbackUpdates, 60000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, []);
 
   const handleBackButton = useCallback(() => {
     if (view === 'onboarding' && result) { setView('main'); return; }

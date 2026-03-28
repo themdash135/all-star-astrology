@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { AREAS, SYSTEMS, CITIES } from '../app/constants.js';
 import { scoreColor, scoreGradient } from '../app/helpers.js';
-import { apiPost } from '../app/api.js';
+import { apiGet, apiPost } from '../app/api.js';
 import { IconBack } from './common.jsx';
 
 /* ─── Scroll-triggered reveal hook ─── */
@@ -599,21 +599,64 @@ const INTENT_OPTIONS = [
 
 const PARTNER_BLANK = { birth_date: '', birth_time: '', birth_location: '', full_name: '' };
 
+function _normalizePartner(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  return {
+    full_name: (raw.full_name || '').trim(),
+    birth_date: (raw.birth_date || '').trim(),
+    birth_time: (raw.birth_time || '').trim(),
+    birth_location: (raw.birth_location || '').trim(),
+    birth_location_display: (raw.birth_location_display || raw.birth_location || '').trim(),
+    birth_location_confirmed: raw.birth_location_confirmed !== false,
+  };
+}
+
+function _isPartnerComplete(partner) {
+  return Boolean(partner?.birth_date && partner?.birth_location);
+}
+
+function _partnerSignature(partner) {
+  if (!partner) return '';
+  return [
+    partner.full_name || '',
+    partner.birth_date || '',
+    partner.birth_time || '',
+    partner.birth_location || '',
+  ].join('|');
+}
+
 function _loadPartnerFromSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_PARTNER_KEY);
     if (!raw) return null;
-    const p = JSON.parse(raw);
-    if (p && p.birth_date && p.birth_time && p.birth_location) return p;
-    return null;
+    return _normalizePartner(JSON.parse(raw));
   } catch { return null; }
+}
+
+async function _refinePartnerLocation(query) {
+  const normalizedQuery = (query || '').trim();
+  if (normalizedQuery.length < 3) {
+    return '';
+  }
+  try {
+    const payload = await apiGet(`places/autocomplete?input=${encodeURIComponent(normalizedQuery)}`);
+    const predictions = Array.isArray(payload?.predictions) ? payload.predictions : [];
+    const exact = predictions.find((item) => (item?.description || '').trim().toLowerCase() === normalizedQuery.toLowerCase());
+    return (exact?.description || predictions[0]?.description || '').trim();
+  } catch {
+    return '';
+  }
 }
 
 function LoveCompatibilitySection({ form }) {
   const [ref, visible] = useReveal(0.1);
   const [mode, setMode] = useState('gate'); // gate | form | loading | results | skipped
   const [partner, setPartner] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(LC_STORAGE_KEY)) || PARTNER_BLANK; } catch { return PARTNER_BLANK; }
+    try {
+      const settingsPartner = _loadPartnerFromSettings();
+      if (settingsPartner) return settingsPartner;
+      return _normalizePartner(JSON.parse(localStorage.getItem(LC_STORAGE_KEY))) || PARTNER_BLANK;
+    } catch { return PARTNER_BLANK; }
   });
   const [compatData, setCompatData] = useState(() => {
     try { return JSON.parse(localStorage.getItem(LC_RESULT_KEY)) || null; } catch { return null; }
@@ -623,33 +666,48 @@ function LoveCompatibilitySection({ form }) {
     try { return localStorage.getItem(LC_INTENT_KEY) || 'serious'; } catch { return 'serious'; }
   });
   const autoTriggered = useRef(false);
+  const activePartner = _normalizePartner(partner) || PARTNER_BLANK;
+  const hasSavedPartner = Boolean(activePartner.birth_date || activePartner.full_name || activePartner.birth_location);
 
   // Auto-show cached results OR auto-trigger from settings partner
   useEffect(() => {
-    if (compatData && partner.birth_date) {
+    const settingsPartner = _loadPartnerFromSettings();
+    const cachedPartner = (() => {
+      try {
+        return _normalizePartner(JSON.parse(localStorage.getItem(LC_STORAGE_KEY)));
+      } catch {
+        return null;
+      }
+    })();
+
+    if (compatData && cachedPartner && _partnerSignature(cachedPartner) === _partnerSignature(partner)) {
       setMode('results');
       return;
     }
-    // If no cached results, check if partner exists in Settings and auto-analyze
+
     if (!autoTriggered.current) {
-      const settingsPartner = _loadPartnerFromSettings();
       if (settingsPartner) {
         autoTriggered.current = true;
         setPartner(settingsPartner);
-        setMode('auto-loading');
+        setMode(_isPartnerComplete(settingsPartner) ? 'auto-loading' : 'form');
+      } else if (cachedPartner) {
+        setPartner(cachedPartner);
+        setMode('form');
       }
     }
   }, []);
 
   const runCompatibility = useCallback(async (partnerData) => {
-    const p = partnerData || partner;
-    if (!p.birth_date || !p.birth_time || !p.birth_location) {
-      setError('Birth date, time, and location are required.');
+    const sourcePartner = _normalizePartner(partnerData || partner) || PARTNER_BLANK;
+    if (!sourcePartner.birth_date || !sourcePartner.birth_location) {
+      setError('Birth date and location are required.');
+      setMode('form');
       return;
     }
     setError('');
     setMode('loading');
-    try {
+
+    async function submitForPartner(resolvedPartner) {
       const body = {
         user: {
           birth_date: form.birth_date,
@@ -659,21 +717,64 @@ function LoveCompatibilitySection({ form }) {
           hebrew_name: form.hebrew_name || '',
         },
         partner: {
-          birth_date: p.birth_date,
-          birth_time: p.birth_time,
-          birth_location: p.birth_location,
-          full_name: p.full_name || '',
+          birth_date: resolvedPartner.birth_date,
+          birth_time: resolvedPartner.birth_time || '12:00',
+          birth_location: resolvedPartner.birth_location,
+          full_name: resolvedPartner.full_name || '',
           hebrew_name: '',
         },
         intent,
       };
-      const result = await apiPost('compatibility', body);
+      return apiPost('compatibility', body);
+    }
+
+    try {
+      let resolvedPartner = sourcePartner;
+      if (!resolvedPartner.birth_location_confirmed) {
+        const refined = await _refinePartnerLocation(resolvedPartner.birth_location);
+        if (refined) {
+          resolvedPartner = {
+            ...resolvedPartner,
+            birth_location: refined,
+            birth_location_confirmed: true,
+          };
+          setPartner(resolvedPartner);
+        }
+      }
+
+      let result;
+      try {
+        result = await submitForPartner(resolvedPartner);
+      } catch (err) {
+        const msg = err?.message || '';
+        if (!msg.includes('Could not geocode the birth location')) {
+          throw err;
+        }
+        const refined = await _refinePartnerLocation(resolvedPartner.birth_location);
+        if (!refined || refined === resolvedPartner.birth_location) {
+          throw err;
+        }
+        resolvedPartner = {
+          ...resolvedPartner,
+          birth_location: refined,
+          birth_location_confirmed: true,
+        };
+        setPartner(resolvedPartner);
+        result = await submitForPartner(resolvedPartner);
+      }
+
       setCompatData(result);
-      localStorage.setItem(LC_STORAGE_KEY, JSON.stringify(p));
+      localStorage.setItem(LC_STORAGE_KEY, JSON.stringify(resolvedPartner));
+      localStorage.setItem(SETTINGS_PARTNER_KEY, JSON.stringify(resolvedPartner));
       localStorage.setItem(LC_RESULT_KEY, JSON.stringify(result));
       setMode('results');
     } catch (err) {
-      setError(err.message || 'Compatibility analysis failed.');
+      const msg = err.message || 'Compatibility analysis failed.';
+      if (msg.includes('Could not geocode the birth location')) {
+        setError('Your saved partner location needs a more specific place name. The form below has been prefilled so you can fix it once and reuse it everywhere.');
+      } else {
+        setError(msg);
+      }
       setMode('form');
     }
   }, [form, partner, intent]);
@@ -687,7 +788,7 @@ function LoveCompatibilitySection({ form }) {
     setCompatData(null);
     localStorage.removeItem(LC_RESULT_KEY);
     // Auto re-run if we had results and have partner data
-    if (partner.birth_date && partner.birth_time && partner.birth_location) {
+    if (partner.birth_date && partner.birth_location) {
       setMode('loading');
       // Small delay to let state settle
       setTimeout(() => runCompatibility(), 50);
@@ -750,6 +851,7 @@ function LoveCompatibilitySection({ form }) {
           onSubmit={handleSubmit}
           onCancel={() => setMode('gate')}
           error={error}
+          savedPartner={hasSavedPartner ? activePartner : null}
         />
       )}
 
@@ -757,22 +859,32 @@ function LoveCompatibilitySection({ form }) {
         <div className="lc-loading">
           <span className="lc-loading-icon">&#x2661;</span>
           <p className="lc-loading-text">Analyzing cosmic compatibility across 8 systems...</p>
+          {hasSavedPartner && (
+            <p className="lc-gate-sub" style={{ marginTop: 8 }}>
+              Using saved partner info{activePartner.full_name ? ` for ${activePartner.full_name}` : ''}.
+            </p>
+          )}
         </div>
       )}
 
       {mode === 'results' && compatData && (
-        <LoveResults data={compatData} onRedo={handleRedo} intent={intent} onIntentChange={handleIntentChange} />
+        <LoveResults data={compatData} onRedo={handleRedo} intent={intent} onIntentChange={handleIntentChange} partner={activePartner} />
       )}
     </section>
   );
 }
 
 /* ─── Partner Entry Form ─── */
-function PartnerForm({ partner, setPartner, onSubmit, onCancel, error }) {
+function PartnerForm({ partner, setPartner, onSubmit, onCancel, error, savedPartner }) {
   const update = (key, val) => setPartner(p => ({ ...p, [key]: val }));
   return (
     <div className="lc-form-overlay">
       <div className="lc-form-title">Partner's Birth Data</div>
+      {savedPartner && (
+        <p className="lc-gate-sub" style={{ marginBottom: 12 }}>
+          We already found saved partner info{savedPartner.full_name ? ` for ${savedPartner.full_name}` : ''}. Update it here only if something changed.
+        </p>
+      )}
       <div className="lc-form-grid">
         <div className="lc-field">
           <label>Name (optional)</label>
@@ -785,7 +897,7 @@ function PartnerForm({ partner, setPartner, onSubmit, onCancel, error }) {
             onChange={e => update('birth_date', e.target.value)} />
         </div>
         <div className="lc-field">
-          <label>Birth Time *</label>
+          <label>Birth Time (optional)</label>
           <input type="time" value={partner.birth_time}
             onChange={e => update('birth_time', e.target.value)} />
         </div>
@@ -827,7 +939,7 @@ function IntentSelector({ value, onChange }) {
 }
 
 /* ─── Love Results Display ─── */
-function LoveResults({ data, onRedo, intent, onIntentChange }) {
+function LoveResults({ data, onRedo, intent, onIntentChange, partner }) {
   const guide = data.couple_guide || {};
   const playbook = data.relationship_playbook || {};
   const synthesis = data.tier1_synthesis || {};
@@ -850,6 +962,15 @@ function LoveResults({ data, onRedo, intent, onIntentChange }) {
         <div className="lc-verdict-title serif">{data.verdict}</div>
         <p className="lc-verdict-prose">{data.verdict_prose}</p>
       </div>
+
+      {partner && (partner.full_name || partner.birth_date || partner.birth_location) && (
+        <div className="lc-verdict-card" style={{ marginTop: 12 }}>
+          <div className="lc-verdict-title serif" style={{ fontSize: '1rem' }}>Using Saved Partner Info</div>
+          <p className="lc-verdict-prose" style={{ marginBottom: 0 }}>
+            {[partner.full_name || 'Unnamed partner', partner.birth_date || null, partner.birth_location || null].filter(Boolean).join(' · ')}
+          </p>
+        </div>
+      )}
 
       {/* Who You Are / Who They Are */}
       <GuideSection icon="&#x2605;" title={`Who ${userName} Is`} items={guide.who_you_are} />

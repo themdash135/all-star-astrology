@@ -283,6 +283,101 @@ def calculate(context: dict[str, Any]) -> dict[str, Any]:
         for line in reason_map[category][:6]:
             driver_rows.append([category.title(), line])
 
+    # Build enriched relationships text linking Venus/Mars to the love score.
+    venus_condition = planet_condition("Venus", venus["sign"])
+    venus_desc = f"Venus in {venus['sign']} in House {venus['house']}"
+    if venus_condition == "Domicile":
+        venus_desc += f" (in its own sign)"
+    elif venus_condition == "Exalted":
+        venus_desc += f" (exalted)"
+    elif venus_condition == "Debilitated":
+        venus_desc += f" (in detriment)"
+    love_score = scores["love"]
+    relationships_text = (
+        f"With {venus_desc}, your love nature is "
+        + ("deeply romantic and idealistic" if venus["sign"] in {"Pisces", "Libra", "Taurus"} else
+           "intense and transformative" if venus["sign"] in {"Scorpio", "Aries"} else
+           "expressive and warm" if venus["sign"] in {"Leo", "Sagittarius"} else
+           "practical and grounded" if venus["sign"] in {"Virgo", "Capricorn"} else
+           "intellectually curious and socially versatile" if venus["sign"] in {"Gemini", "Aquarius"} else
+           "nurturing and protective")
+        + f" — this is why your Love score sits at {love_score}%. "
+        f"Mars in {mars['sign']} in House {mars['house']} shows how you pursue desire and assert boundaries, "
+        + ("with directness and fire" if mars["sign"] in {"Aries", "Scorpio", "Capricorn"} else
+           "with patience and strategy" if mars["sign"] in {"Taurus", "Virgo", "Libra"} else
+           "with emotional intuition" if mars["sign"] in {"Cancer", "Pisces"} else
+           "with adaptability and quick thinking")
+        + "."
+    )
+
+    # Build enriched current sky text with specific transit descriptions.
+    transit_descriptions = []
+    aspect_label_map = {
+        "Conjunction": "conjunct",
+        "Sextile": "sextile",
+        "Trine": "trine",
+        "Square": "square",
+        "Opposition": "opposite",
+        "Quincunx": "quincunx",
+    }
+    transit_effect_map = {
+        ("Jupiter", "Sun"): "expanding your sense of self and confidence",
+        ("Jupiter", "Moon"): "nurturing emotional optimism and generosity",
+        ("Jupiter", "Venus"): "amplifying attraction, social warmth, and pleasure",
+        ("Jupiter", "Mars"): "fueling ambition and bold action",
+        ("Jupiter", "Midheaven"): "opening doors for career visibility and growth",
+        ("Jupiter", "Ascendant"): "boosting your public presence and personal magnetism",
+        ("Saturn", "Sun"): "testing your discipline and long-term commitments",
+        ("Saturn", "Moon"): "asking for emotional maturity and patience",
+        ("Saturn", "Venus"): "challenging you to deepen relational commitment",
+        ("Saturn", "Mars"): "requiring measured effort rather than impulsive action",
+        ("Saturn", "Midheaven"): "restructuring your professional direction",
+        ("Saturn", "Ascendant"): "prompting serious self-reflection",
+        ("Venus", "Sun"): "brightening your self-expression and social charm",
+        ("Venus", "Moon"): "softening emotional exchanges and daily mood",
+        ("Venus", "Venus"): "heightening your appreciation for beauty and connection",
+        ("Venus", "Mars"): "stirring romantic attraction and creative drive",
+        ("Mars", "Sun"): "energizing your willpower and drive",
+        ("Mars", "Moon"): "intensifying emotional reactions and instincts",
+        ("Mars", "Venus"): "sparking passion and desire",
+        ("Mars", "Ascendant"): "pushing you toward assertive self-expression",
+        ("Sun", "Midheaven"): "spotlighting your career and public reputation",
+        ("Sun", "Ascendant"): "illuminating your personal identity today",
+        ("Moon", "Sun"): "connecting your inner feelings with your outward goals",
+        ("Moon", "Moon"): "echoing your natal emotional patterns",
+    }
+    for ta in transit_aspects[:4]:
+        aspect_word = aspect_label_map.get(ta["name"], ta["name"].lower())
+        effect_key = (ta["transit"], ta["natal"])
+        effect = transit_effect_map.get(effect_key, f"activating your natal {ta['natal']} themes")
+        transit_descriptions.append(f"Transit {ta['transit']} {aspect_word} your natal {ta['natal']} is {effect}")
+    if len(transit_descriptions) >= 2:
+        current_sky_text = f"{transit_descriptions[0]}. {transit_descriptions[1]}. These are the strongest live contacts shaping your day."
+    elif transit_descriptions:
+        current_sky_text = f"{transit_descriptions[0]}. This is the most prominent transit contact active right now."
+    else:
+        current_sky_text = "No tight transit aspects are active today, so the sky is giving you a quieter window to work from your natal strengths."
+
+    # Build element balance insight.
+    element_traits = {
+        "Fire": "driven by enthusiasm, initiative, and creative self-expression — you light up when you can lead and inspire",
+        "Earth": "grounded in practicality, patience, and material results — you thrive when building something tangible",
+        "Air": "oriented toward ideas, communication, and social connection — you excel when exchanging perspectives and strategizing",
+        "Water": "guided by emotion, intuition, and empathy — you are strongest when trusting your inner compass and emotional intelligence",
+    }
+    modality_traits = {
+        "Cardinal": "an initiating approach — you are a natural starter who thrives on launching new ventures and setting direction",
+        "Fixed": "a persistent approach — you bring staying power, determination, and the ability to see things through to completion",
+        "Mutable": "an adaptive approach — you are flexible, versatile, and skilled at adjusting to changing circumstances",
+    }
+    dom_element = dominance["dominant_element"]
+    dom_modality = dominance["dominant_modality"]
+    element_balance_text = (
+        f"Your chart is dominated by {dom_element} energy with {dom_modality.lower()} momentum. "
+        f"The {dom_element} emphasis means you are {element_traits.get(dom_element, 'a blend of multiple elemental qualities')}. "
+        f"The {dom_modality} quality gives you {modality_traits.get(dom_modality, 'a balanced approach to starting and finishing')}."
+    )
+
     insights = [
         insight(
             "Identity blend",
@@ -290,7 +385,7 @@ def calculate(context: dict[str, Any]) -> dict[str, Any]:
         ),
         insight(
             "Relationships",
-            f"Venus in {venus['sign']} in House {venus['house']} describes your attraction pattern, while Mars in {mars['sign']} in House {mars['house']} shows how you pursue desire and boundaries.",
+            relationships_text,
         ),
         insight(
             "Career focus",
@@ -298,7 +393,11 @@ def calculate(context: dict[str, Any]) -> dict[str, Any]:
         ),
         insight(
             "Current sky",
-            f"The strongest live transit influences right now are summarized through the daily scores below. They are driven by today's moving planets interacting with your natal Sun, Moon, Venus, Mars, Ascendant, and Midheaven.",
+            current_sky_text,
+        ),
+        insight(
+            "Element balance",
+            element_balance_text,
         ),
     ]
 

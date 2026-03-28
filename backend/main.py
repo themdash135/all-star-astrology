@@ -215,8 +215,6 @@ async def security_middleware(request: Request, call_next):
     return await call_next(request)
 
 
-# ── Feedback store (in-memory, persists within container lifetime) ──────────
-_feedback_store: list[dict] = []
 _ADMIN_SECRET = os.getenv("BACKEND_API_KEY", "")
 
 
@@ -295,24 +293,28 @@ def _send_feedback_email(ticket: dict, user_name: str) -> None:
 @app.post("/api/feedback/submit")
 async def submit_feedback_v2(request: Request) -> dict[str, Any]:
     """User submits feedback with email for follow-up."""
-    import uuid
     body = await request.json()
-    email = str(body.get("email", "")).strip().lower()
-    category = str(body.get("category", "other")).strip()[:20]
-    message = str(body.get("message", "")).strip()[:1000]
-    if not email or not message:
-        raise HTTPException(status_code=400, detail="Email and message are required.")
-    ticket = {
-        "id": str(uuid.uuid4())[:8],
-        "email": email,
-        "category": category,
-        "message": message,
-        "created": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        "responses": [],
-    }
-    name = str(body.get("name", "")).strip()[:100]
-    _feedback_store.append(ticket)
-    logger.info(f"Feedback #{ticket['id']} from {email}: {category}")
+    try:
+        user_id = _clean_text(
+            body.get("user_id") or body.get("email"),
+            field_name="User ID",
+            required=True,
+            max_length=120,
+        ).lower()
+        category = _clean_text(body.get("category", "other"), field_name="Category", required=True, max_length=20).lower()
+        message = _clean_text(body.get("message"), field_name="Message", required=True, max_length=1000)
+        name = _clean_text(body.get("name", ""), field_name="Name", required=False, max_length=100)
+        contact = _clean_text(body.get("contact", body.get("email", "")), field_name="Contact", required=False, max_length=160)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    ticket = admin_module.create_feedback_ticket(
+        user_id=user_id,
+        category=category,
+        message=message,
+        name=name,
+        contact=contact,
+    )
+    logger.info(f"Feedback #{ticket['id']} from {user_id}: {category}")
 
     # Auto-email notification to admin
     _send_feedback_email(ticket, name)
@@ -323,21 +325,27 @@ async def submit_feedback_v2(request: Request) -> dict[str, Any]:
 @app.get("/api/feedback/check")
 async def check_feedback(request: Request) -> dict[str, Any]:
     """User checks for admin responses to their feedback."""
-    email = request.query_params.get("email", "").strip().lower()
-    if not email:
+    user_id = (
+        request.query_params.get("user_id", "").strip().lower()
+        or request.query_params.get("email", "").strip().lower()
+    )
+    if not user_id:
         return {"tickets": []}
-    user_tickets = [
-        {
-            "id": t["id"],
-            "category": t["category"],
-            "message": t["message"][:100],
-            "created": t["created"],
-            "responses": t["responses"],
-            "has_response": len(t["responses"]) > 0,
-        }
-        for t in _feedback_store
-        if t["email"] == email
-    ]
+    user_tickets = []
+    for ticket in admin_module.list_feedback_tickets(user_id=user_id):
+        responses = ticket.get("responses", [])
+        user_tickets.append(
+            {
+                "id": ticket["id"],
+                "category": ticket.get("category", "other"),
+                "message": ticket.get("message", "")[:160],
+                "created": ticket.get("created"),
+                "updated": ticket.get("updated"),
+                "status": ticket.get("status", "pending"),
+                "responses": responses,
+                "has_response": len(responses) > 0,
+            }
+        )
     return {"tickets": user_tickets}
 
 
@@ -348,18 +356,17 @@ async def respond_to_feedback(request: Request) -> dict[str, Any]:
     if not _ADMIN_SECRET or key != _ADMIN_SECRET:
         raise HTTPException(status_code=403, detail="Forbidden")
     body = await request.json()
-    ticket_id = str(body.get("ticket_id", ""))
-    message = str(body.get("message", "")).strip()[:500]
-    if not ticket_id or not message:
-        raise HTTPException(status_code=400, detail="ticket_id and message required.")
-    for ticket in _feedback_store:
-        if ticket["id"] == ticket_id:
-            ticket["responses"].append({
-                "message": message,
-                "created": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            })
-            return {"status": "ok", "ticket_id": ticket_id}
-    raise HTTPException(status_code=404, detail="Ticket not found.")
+    try:
+        ticket_id = _clean_text(body.get("ticket_id"), field_name="Ticket ID", required=True, max_length=32)
+        message = _clean_text(body.get("message"), field_name="Message", required=True, max_length=500)
+        status = _clean_text(body.get("status", "in_progress"), field_name="Status", required=False, max_length=20).lower() or "in_progress"
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    try:
+        ticket = admin_module.append_feedback_response(ticket_id, message=message, status=status)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Ticket not found.") from None
+    return {"status": "ok", "ticket_id": ticket_id, "ticket_status": ticket.get("status", status)}
 
 
 @app.get("/api/feedback/admin")
@@ -368,7 +375,7 @@ async def list_all_feedback(request: Request) -> dict[str, Any]:
     key = request.headers.get("X-Backend-Key", "")
     if not _ADMIN_SECRET or key != _ADMIN_SECRET:
         raise HTTPException(status_code=403, detail="Forbidden")
-    return {"tickets": _feedback_store}
+    return {"tickets": admin_module.list_feedback_tickets()}
 
 
 @app.delete("/api/user-data")

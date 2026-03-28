@@ -256,10 +256,63 @@ def calculate(context: dict[str, Any]) -> dict[str, Any]:
         highlight("Secret friend", CHINESE_SECRET_FRIENDS[natal_year["animal"]]),
     ]
 
+    # Expanded animal personality descriptions.
+    animal_deep = {
+        "Rat": "Rats are natural strategists with sharp instincts for opportunity. They excel at reading social dynamics and often accumulate resources through cleverness rather than brute force. Their challenge is learning to trust others fully, as self-reliance can become isolating. At their best, Rats are charming networkers who turn small openings into big wins.",
+        "Ox": "Oxen are the backbone of any team — reliable, methodical, and quietly powerful. They build wealth and reputation through sheer consistency, rarely cutting corners. Their challenge is rigidity; they can resist change long past the point of usefulness. At their best, Oxen create lasting legacies through patient, honest effort.",
+        "Tiger": "Tigers lead with charisma and courage, often drawn to causes larger than themselves. They are fiercely protective of those they love and unafraid to challenge authority. Their challenge is impulsiveness — they can leap before looking and burn bridges in the heat of passion. At their best, Tigers inspire entire communities through fearless action.",
+        "Rabbit": "Rabbits possess refined taste and exceptional diplomatic skill. They navigate conflict by finding elegant compromises that preserve harmony. Their challenge is conflict avoidance — sometimes peace-keeping becomes people-pleasing. At their best, Rabbits are beloved advisors whose quiet wisdom shapes outcomes behind the scenes.",
+        "Dragon": "Dragons carry a mythic quality — they think big, dream boldly, and naturally attract attention. They are gifted at launching ambitious projects and rallying others around a vision. Their challenge is ego; unchecked confidence can become arrogance. At their best, Dragons achieve legendary things by channeling their fire into service.",
+        "Snake": "Snakes are deep thinkers with powerful intuition and a talent for seeing what others miss. They are often drawn to philosophy, finance, or healing arts. Their challenge is suspicion — they can overthink trust and hold grudges silently. At their best, Snakes are wise counselors whose insight cuts straight to the truth.",
+        "Horse": "Horses are born adventurers with infectious energy and a need for freedom. They bring enthusiasm to every room and thrive when exploring new frontiers — travel, ideas, or relationships. Their challenge is restlessness; commitment can feel like a cage if they are not careful. At their best, Horses inspire others through passionate, joyful living.",
+        "Goat": "Goats are deeply creative souls with rich inner lives and a genuine concern for others' well-being. They flourish in artistic, healing, or nurturing environments. Their challenge is indecisiveness and dependency — they may lean too heavily on stronger personalities. At their best, Goats create beauty and compassion that transforms their surroundings.",
+        "Monkey": "Monkeys are quick-witted problem solvers who see angles others miss entirely. They learn fast, adapt faster, and can talk their way into or out of almost anything. Their challenge is scattered focus — too many interests can dilute their impact. At their best, Monkeys are brilliant innovators whose cleverness solves real problems.",
+        "Rooster": "Roosters are detail-oriented perfectionists with high standards for themselves and others. They are honest to a fault and deeply committed to doing things right. Their challenge is criticism — their sharp eye for flaws can strain relationships. At their best, Roosters are meticulous leaders whose thoroughness produces outstanding results.",
+        "Dog": "Dogs are the moral compass of the zodiac — loyal, principled, and deeply concerned with fairness. They defend the underdog and hold themselves to strict ethical standards. Their challenge is anxiety; they can worry excessively about things beyond their control. At their best, Dogs are trusted guardians whose integrity earns lifelong devotion.",
+        "Pig": "Pigs are generous, sincere, and genuinely kind — they see the best in people and give freely of themselves. They enjoy life's pleasures and create warm, welcoming spaces wherever they go. Their challenge is naivety; their trusting nature can leave them vulnerable to exploitation. At their best, Pigs build communities of abundance and mutual care.",
+    }
+
+    # Find trine group and clash animal for compatibility frame.
+    natal_animal = natal_year["animal"]
+    trine_group = []
+    for group in CHINESE_TRINES:
+        if natal_animal in group:
+            trine_group = sorted(group - {natal_animal})
+            break
+    secret_friend = CHINESE_SECRET_FRIENDS[natal_animal]
+    clash_animal = None
+    for pair in CLASH_PAIRS:
+        if natal_animal in pair:
+            clash_animal = (pair - {natal_animal}).pop()
+            break
+
+    # Build compatibility frame text with inlined animals.
+    compat_text = (
+        f"{natal_animal}'s best allies are {' and '.join(trine_group)} (trine group) — "
+        f"these animals share a natural rhythm and instinctive understanding. "
+        f"Your secret friend is {secret_friend}, offering quiet, behind-the-scenes support. "
+    )
+    if clash_animal:
+        compat_text += (
+            f"Challenging matches include {clash_animal} (direct clash), "
+            f"where opposing energies can create friction but also spark growth through contrast."
+        )
+
     insights = [
-        insight("Core animal style", f"The {natal_year['animal']} archetype tends to be {ANIMAL_THEMES[natal_year['animal']]}. The element {natal_year['element']} changes how forcefully or subtly that style is expressed."),
+        insight(
+            "Core animal style",
+            f"The {natal_animal} archetype tends to be {ANIMAL_THEMES[natal_animal]}. "
+            f"The element {natal_year['element']} changes how forcefully or subtly that style is expressed. "
+            f"{animal_deep.get(natal_animal, '')}"
+        ),
+        insight(
+            "Peach blossom",
+            f"Your peach blossom animal is {peach} — in Chinese astrology, the peach blossom represents romantic attraction and social charisma. "
+            f"When {peach} energy is activated by the current year or month cycle, you may notice heightened magnetism, new romantic possibilities, or an easier time making meaningful social connections. "
+            f"{'This peach blossom is currently active, amplifying your romantic and social appeal.' if (current_year['animal'] == peach or current_month_animal == peach) else 'This peach blossom is dormant right now, but watch for it when ' + peach + ' energy returns in the cycle.'}"
+        ),
         insight("Layered pillars", f"This tab uses the lunar birth year, lunar month, sexagenary day branch, and two-hour birth animal to add more texture than a year-sign horoscope alone."),
-        insight("Compatibility frame", f"The most naturally supportive animals for {natal_year['animal']} come from the trine group and secret-friend pairing shown in the table below."),
+        insight("Compatibility frame", compat_text),
         insight("Current timing", f"The current cycle compares your natal profile to {current_year['animal']} year, {current_month_animal} month, and {current_day_branch} day vibrations."),
     ]
 

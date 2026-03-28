@@ -4,50 +4,91 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_KEY || '';
 const HAS_FALLBACK = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
 
+async function readPayload(response) {
+  const contentType = response.headers.get('content-type') || '';
+  if (response.status === 204) {
+    return null;
+  }
+  if (contentType.includes('application/json')) {
+    return response.json();
+  }
+  const text = await response.text();
+  return text ? { detail: text } : null;
+}
+
+function normalizeTransportError(err) {
+  const message = err?.message || '';
+  if (message === 'Failed to fetch' || /fetch/i.test(message)) {
+    return new Error('Could not reach the server. Check your connection and try again.');
+  }
+  return err instanceof Error ? err : new Error('Unexpected network error.');
+}
+
+function errorFromResponse(response, payload) {
+  const detail = typeof payload?.detail === 'string' ? payload.detail : '';
+  return new Error(detail || `API error ${response.status}`);
+}
+
 async function primaryGet(endpoint) {
-  const response = await fetch(`/api/${endpoint}`);
-  const payload = await response.json();
-  if (!response.ok) throw new Error(payload.detail || `API error ${response.status}`);
-  return payload;
+  try {
+    const response = await fetch(`/api/${endpoint}`);
+    const payload = await readPayload(response);
+    if (!response.ok) throw errorFromResponse(response, payload);
+    return payload;
+  } catch (err) {
+    throw normalizeTransportError(err);
+  }
 }
 
 async function primaryPost(endpoint, body) {
-  const response = await fetch(`/api/${endpoint}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Request-Time': String(Date.now() / 1000),
-    },
-    body: JSON.stringify(body),
-  });
-  const payload = await response.json();
-  if (!response.ok) throw new Error(payload.detail || `API error ${response.status}`);
-  return payload;
+  try {
+    const response = await fetch(`/api/${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Request-Time': String(Date.now() / 1000),
+      },
+      body: JSON.stringify(body),
+    });
+    const payload = await readPayload(response);
+    if (!response.ok) throw errorFromResponse(response, payload);
+    return payload;
+  } catch (err) {
+    throw normalizeTransportError(err);
+  }
 }
 
 async function fallbackGet(endpoint) {
-  const response = await fetch(`${SUPABASE_URL}/${endpoint}`, {
-    method: 'GET',
-    headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
-  });
-  const payload = await response.json();
-  if (!response.ok) throw new Error(payload.detail || `API error ${response.status}`);
-  return payload;
+  try {
+    const response = await fetch(`${SUPABASE_URL}/${endpoint}`, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+    });
+    const payload = await readPayload(response);
+    if (!response.ok) throw errorFromResponse(response, payload);
+    return payload;
+  } catch (err) {
+    throw normalizeTransportError(err);
+  }
 }
 
 async function fallbackPost(endpoint, body) {
-  const response = await fetch(`${SUPABASE_URL}/${endpoint}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-      'X-Request-Time': String(Date.now() / 1000),
-    },
-    body: JSON.stringify(body),
-  });
-  const payload = await response.json();
-  if (!response.ok) throw new Error(payload.detail || `API error ${response.status}`);
-  return payload;
+  try {
+    const response = await fetch(`${SUPABASE_URL}/${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'X-Request-Time': String(Date.now() / 1000),
+      },
+      body: JSON.stringify(body),
+    });
+    const payload = await readPayload(response);
+    if (!response.ok) throw errorFromResponse(response, payload);
+    return payload;
+  } catch (err) {
+    throw normalizeTransportError(err);
+  }
 }
 
 export async function apiGet(endpoint) {

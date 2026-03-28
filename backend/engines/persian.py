@@ -23,6 +23,83 @@ from .common import (
 
 TRADITIONAL_PLANETS = ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn"]
 
+TEMPERAMENT_DESCRIPTIONS: dict[str, str] = {
+    "Choleric": (
+        "Bold, decisive, and action-oriented. You process the world through challenge "
+        "and conquest, excelling when there is a clear target. Your health benefits "
+        "from cool, moist foods and calming environments. Watch for impatience, "
+        "overwork, and inflammatory conditions — your fire burns hot and needs "
+        "deliberate rest to avoid burnout."
+    ),
+    "Sanguine": (
+        "Warm, sociable, and optimistic. You process the world through connection "
+        "and shared experience, thriving in collaborative and lively settings. "
+        "Your health benefits from light, dry foods and regular movement. Watch for "
+        "overcommitment and scattered energy — your enthusiasm can stretch you thin "
+        "if you don't protect your boundaries."
+    ),
+    "Melancholic": (
+        "Analytical, detail-oriented, and deeply thoughtful. You process the world "
+        "carefully and need routine and structure to thrive. Your health benefits "
+        "from warm, moist foods and environments. Watch for overthinking and "
+        "isolation — your depth is a gift, but it needs social warmth and physical "
+        "movement to stay in balance."
+    ),
+    "Phlegmatic": (
+        "Steady, patient, and deeply resilient. You process the world through "
+        "careful observation and move at a deliberate pace that others often "
+        "underestimate. Your health benefits from warm, dry foods and stimulating "
+        "activity. Watch for inertia and emotional suppression — your calm exterior "
+        "can mask needs that deserve attention."
+    ),
+}
+
+MANSION_DESCRIPTIONS: dict[str, str] = {
+    "Al Sharatain": "The Two Signs — a mansion of bold beginnings, courage, and the first spark of initiative. Favors starting new ventures.",
+    "Al Butain": "The Little Belly — a mansion of hidden riches, patience, and finding treasure where others overlook. Good for research and discovery.",
+    "Al Thurayya": "The Pleiades — a mansion of luminous gatherings, abundance, and social elevation. Favors networking and public appearances.",
+    "Al Dabaran": "The Follower — a mansion of pursuit, determination, and relentless focus on a goal. Favors building wealth and destroying obstacles.",
+    "Al Haqah": "The Mark — a mansion of study, learning, and the transmission of knowledge. Favors education, writing, and teaching.",
+    "Al Hanah": "The Brand — a mansion of recognition, reputation, and being marked for greatness. Favors career advancement and fame.",
+    "Al Dhira": "The Forearm — a mansion of commerce, trade, and practical exchange. Favors deals, negotiations, and financial transactions.",
+    "Al Nathrah": "The Gap — a mansion of nurturing, protection, and emotional shelter. Favors family matters, healing, and domestic peace.",
+    "Al Tarf": "The Glance — a mansion of perception, quick judgment, and the ability to read situations instantly. Favors intuitive decisions.",
+    "Al Jabhah": "The Forehead — a mansion of authority, command, and public victory. Favors leadership decisions and asserting dominance.",
+    "Al Zubrah": "The Mane — a mansion of pride, loyalty, and regal bearing. Favors building alliances and earning respect.",
+    "Al Sarfah": "The Changer — a mansion of transformation, weather shifts, and turning points. Favors letting go of the old to make room for the new.",
+    "Al Awwa": "The Barker — a mansion of communication, honest speech, and calling things by their true name. Favors negotiations and truth-telling.",
+    "Al Simak": "The Unarmed One — a mansion of peace, diplomacy, and defenseless openness. Favors partnerships, romance, and acts of trust.",
+    "Al Ghafr": "The Cover — a mansion of concealment, strategy, and keeping counsel. Favors privacy, secrecy, and behind-the-scenes work.",
+    "Al Zubana": "The Claws — a mansion of balance, justice, and weighing outcomes. Favors legal matters, contracts, and moral decisions.",
+    "Al Iklil": "The Crown — a mansion of honor, elevation, and crowning achievement. Favors ceremonies, promotions, and public recognition.",
+    "Al Qalb": "The Heart — a mansion of passion, courage, and the burning center. Favors bold romantic gestures and acts of personal bravery.",
+    "Al Shaula": "The Sting — a mansion of danger, testing, and sharp transformation. Requires caution but rewards those who face difficulty honestly.",
+    "Al Naaim": "The Ostriches — a mansion of swiftness, adaptability, and resourceful movement. Favors travel, quick decisions, and flexibility.",
+    "Al Baldah": "The City — a mansion of civilization, community, and collective order. Favors civic engagement and working within institutions.",
+    "Sad al Dhabih": "The Lucky Slaughterer — a mansion of sacrifice, release, and purposeful endings. Favors clearing debts and cutting losses wisely.",
+    "Sad Bula": "The Good Luck of the Swallower — a mansion of absorption, healing, and quiet restoration. Favors recovery and consolidating gains.",
+    "Sad al Suud": "The Luckiest of the Lucky — a mansion of supreme fortune, optimism, and doors that open effortlessly. Favors new starts and wish fulfillment.",
+    "Sad al Akhbiyah": "The Lucky Star of Hidden Things — a mansion of buried treasure, revelation, and secrets that come to light for your benefit.",
+    "Al Fargh al Muqaddam": "The Front Spout — a mansion of outpouring generosity, social connection, and the flow of resources toward you.",
+    "Al Fargh al Muakhkhar": "The Rear Spout — governs endings that lead to new beginnings, a pouring out that makes space for fresh energy.",
+    "Batn al Hut": "The Belly of the Fish — a mansion of deep intuition, dreams, and the unconscious wisdom that guides from below the surface.",
+}
+
+LOT_HOUSE_MEANINGS: dict[int, str] = {
+    1: "self, body, and personal identity — your fortune or vocation is tied to who you are at your core",
+    2: "personal resources, income, and self-worth — material comfort comes through what you own and earn directly",
+    3: "communication, siblings, and local networks — growth comes through learning, writing, and nearby connections",
+    4: "home, family, and roots — your deepest support comes from ancestry, property, and private foundations",
+    5: "creativity, pleasure, and children — joy and luck flow through self-expression, romance, and generative acts",
+    6: "service, health, and daily routines — fulfillment comes through discipline, helping others, and bodily care",
+    7: "partnerships, marriage, and open rivals — your path is shaped by one-to-one commitments and collaborations",
+    8: "shared resources, transformation, and others' money — power comes through merging assets and facing endings",
+    9: "travel, philosophy, and higher learning — your greatest growth comes through broadening horizons and seeking meaning",
+    10: "career, public reputation, and legacy — your highest calling plays out on the public stage",
+    11: "community, friendships, and group endeavors — your greatest comfort comes through alliances and shared ideals",
+    12: "solitude, hidden enemies, and spiritual retreat — wisdom comes through withdrawal, sacrifice, and unseen forces",
+}
+
 
 def _lot_of_fortune(asc: float, sun: float, moon: float, day_chart: bool) -> float:
     return (asc + moon - sun) % 360.0 if day_chart else (asc + sun - moon) % 360.0
@@ -232,11 +309,61 @@ def calculate(context: dict[str, Any]) -> dict[str, Any]:
         highlight("Temperament", temperament["dominant"]),
     ]
 
+    # Build rich sect explanation
+    if day_chart:
+        sect_explanation = (
+            f"As a day chart (Sun in House {positions['Sun']['house']}), the Sun is "
+            f"your most powerful ally. Solar themes — visibility, authority, vitality — "
+            f"work in your favor. Plan important actions during daylight hours. "
+            f"Jupiter also gains strength as the diurnal benefic, while Saturn operates "
+            f"more constructively as the diurnal malefic, lending discipline without "
+            f"excessive harshness."
+        )
+    else:
+        sect_explanation = (
+            f"As a night chart (Sun in House {positions['Sun']['house']}), the Moon is "
+            f"your most powerful ally. Lunar themes — intuition, receptivity, emotional "
+            f"intelligence — work in your favor. Trust your instincts and let important "
+            f"decisions incubate overnight. Venus also gains strength as the nocturnal "
+            f"benefic, while Mars operates more constructively as the nocturnal malefic, "
+            f"lending drive without excessive aggression."
+        )
+
+    # Build rich lot interpretations
+    fortune_meaning = LOT_HOUSE_MEANINGS.get(fortune_house, "a specialized area of life")
+    spirit_meaning = LOT_HOUSE_MEANINGS.get(spirit_house, "a specialized area of life")
+
+    natal_mansion_desc = MANSION_DESCRIPTIONS.get(natal_mansion["name"], "")
+    current_mansion_desc = MANSION_DESCRIPTIONS.get(current_mansion["name"], "")
+    temperament_desc = TEMPERAMENT_DESCRIPTIONS.get(temperament["dominant"], "")
+
     insights = [
-        insight("Sect", f"Because the Sun is in House {positions['Sun']['house']}, the chart is treated as a {'day' if day_chart else 'night'} chart, which changes how the lots are computed."),
-        insight("Lots", f"Lot of Fortune in House {fortune_house} is used here for wealth and bodily ease, while Lot of Spirit in House {spirit_house} is used for vocation and morale."),
-        insight("Lunar mansions", f"The natal Moon is in {natal_mansion['name']}, while the current Moon is in {current_mansion['name']}. That change is part of the live-outlook layer."),
-        insight("Temperament", f"The dominant temperament is {temperament['dominant']}, derived from Sun, Moon, Ascendant, and chart-ruler qualities. It affects health, mood, and pacing in the score logic."),
+        insight(
+            "Sect",
+            sect_explanation
+        ),
+        insight(
+            "Lots",
+            f"Lot of Fortune in House {fortune_house} suggests your greatest material "
+            f"comfort comes through {fortune_meaning}. "
+            f"Lot of Spirit in House {spirit_house} points to vocation rooted in "
+            f"{spirit_meaning}. Together, these two lots map where worldly ease and "
+            f"life purpose concentrate in your chart."
+        ),
+        insight(
+            "Lunar mansions",
+            f"The natal Moon is in {natal_mansion['name']}. {natal_mansion_desc} "
+            f"The current Moon is in {current_mansion['name']}. {current_mansion_desc} "
+            f"When the transiting Moon returns to your natal mansion or forms a "
+            f"quarter-phase relation, emotional resonance heightens."
+        ),
+        insight(
+            "Temperament",
+            f"The dominant temperament is {temperament['dominant']}, derived from "
+            f"Sun, Moon, Ascendant, and chart-ruler qualities. {temperament_desc} "
+            f"This temperament shapes health tendencies, emotional weather, and the "
+            f"natural pace at which you operate."
+        ),
     ]
 
     return {

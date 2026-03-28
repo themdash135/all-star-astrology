@@ -1,4 +1,4 @@
-import { BLANK, FORM_KEY, ORACLE_HISTORY_KEY, RESULT_KEY } from './constants.js';
+import { BLANK, FEEDBACK_SEEN_KEY, FEEDBACK_USER_KEY, FORM_KEY, ORACLE_HISTORY_KEY, RESULT_KEY } from './constants.js';
 
 export function safeGet(key) {
   try {
@@ -18,6 +18,40 @@ export function safeRemove(key) {
   try {
     localStorage.removeItem(key);
   } catch {}
+}
+
+function _makeId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `fb-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function getOrCreateFeedbackUserKey() {
+  let key = safeGet(FEEDBACK_USER_KEY);
+  if (key) {
+    return key;
+  }
+  key = _makeId();
+  safeSet(FEEDBACK_USER_KEY, key);
+  return key;
+}
+
+export function readSeenFeedbackResponses() {
+  const raw = safeGet(FEEDBACK_SEEN_KEY);
+  if (!raw) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function writeSeenFeedbackResponses(ids) {
+  safeSet(FEEDBACK_SEEN_KEY, JSON.stringify(Array.isArray(ids) ? ids : []));
 }
 
 export function readStoredForm() {

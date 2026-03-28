@@ -5,7 +5,16 @@ import { safeGet, safeSet } from '../app/storage.js';
 import { transliterate } from '../app/helpers.js';
 
 const PARTNER_KEY = 'allstar-partner-info';
+const LC_STORAGE_KEY = 'allstar-compat-partner';
 const TOTAL_STEPS = 6;
+const STEP_TITLES = {
+  1: 'Birth Date',
+  2: 'Birth Time',
+  3: 'Birth Location',
+  4: 'Your Name',
+  5: 'Partner Info',
+  6: 'Theme',
+};
 
 const MONTHS = [
   'January','February','March','April','May','June',
@@ -138,7 +147,17 @@ export function OnboardingScreen({ form, setForm, onSubmit, onCancel, loading, e
 
   function savePartner() {
     if (partner.birth_date || partner.full_name) {
-      safeSet(PARTNER_KEY, JSON.stringify(partner));
+      const normalized = {
+        full_name: (partner.full_name || '').trim(),
+        birth_date: (partner.birth_date || '').trim(),
+        birth_time: (partner.birth_time || '').trim(),
+        birth_location: (partner.birth_location || '').trim(),
+        birth_location_display: (partner.birth_location || '').trim(),
+        birth_location_confirmed: Boolean((partner.birth_location || '').trim()),
+      };
+      const serialized = JSON.stringify(normalized);
+      safeSet(PARTNER_KEY, serialized);
+      safeSet(LC_STORAGE_KEY, serialized);
     }
   }
 
@@ -156,6 +175,20 @@ export function OnboardingScreen({ form, setForm, onSubmit, onCancel, loading, e
     onSubmit();
   }
 
+  function skipPartner() {
+    setStep(6);
+  }
+
+  function useEstimatedBirthTime() {
+    setForm((current) => ({ ...current, birth_time: current.birth_time || '12:00' }));
+  }
+
+  const savedPartnerSummary = partner.full_name?.trim()
+    ? partner.full_name.trim()
+    : partner.birth_date
+      ? `Partner born ${partner.birth_date}`
+      : 'No partner added yet';
+
   return (
     <div className="screen ob-screen">
       {onCancel && (
@@ -168,6 +201,7 @@ export function OnboardingScreen({ form, setForm, onSubmit, onCancel, loading, e
       </div>
 
       <div className="ob-body" key={step}>
+        <p className="ob-hint" style={{ marginBottom: 12 }}>Step {step} of {TOTAL_STEPS} · {STEP_TITLES[step]}</p>
         {step === 1 && (
           <>
             <h2 className="ob-q serif">When were you born?</h2>
@@ -183,7 +217,7 @@ export function OnboardingScreen({ form, setForm, onSubmit, onCancel, loading, e
         {step === 2 && (
           <>
             <h2 className="ob-q serif">What time were you born?</h2>
-            <p className="ob-hint">Exact time improves accuracy for Vedic, BaZi & Western charts. Check your birth certificate if unsure.</p>
+            <p className="ob-hint">Exact time improves accuracy for Vedic, BaZi & Western charts. If you do not know it, you can use noon and update it later.</p>
             <input
               type="time"
               step="60"
@@ -192,6 +226,9 @@ export function OnboardingScreen({ form, setForm, onSubmit, onCancel, loading, e
               value={form.birth_time}
               onChange={(event) => setForm((current) => ({ ...current, birth_time: event.target.value }))}
             />
+            <button type="button" className="btn-ghost" onClick={useEstimatedBirthTime} style={{ width: '100%', marginTop: 10 }}>
+              I don&apos;t know my time, use 12:00 PM
+            </button>
           </>
         )}
 
@@ -264,7 +301,13 @@ export function OnboardingScreen({ form, setForm, onSubmit, onCancel, loading, e
         {step === 5 && (
           <>
             <h2 className="ob-q serif">Add your partner</h2>
-            <p className="ob-hint">Optional — for compatibility insights</p>
+            <p className="ob-hint">Optional — for compatibility insights. You can skip this now and add a partner later.</p>
+            {(partner.full_name || partner.birth_date || partner.birth_location) && (
+              <div className="glass" style={{ padding: 12, marginBottom: 12 }}>
+                <div className="prof-group-title" style={{ marginBottom: 6 }}>Saved partner info</div>
+                <p className="ob-hint" style={{ margin: 0 }}>{savedPartnerSummary}</p>
+              </div>
+            )}
             <input
               type="text"
               className="ob-inp"
@@ -328,6 +371,9 @@ export function OnboardingScreen({ form, setForm, onSubmit, onCancel, loading, e
         {step === 6 && (
           <>
             <h2 className="ob-q serif">Choose your vibe</h2>
+            <p className="ob-hint" style={{ marginBottom: 12 }}>
+              You&apos;re ready to generate your reading. Your birth profile is saved{partner.birth_date ? ', and your partner info will be reused automatically in compatibility screens.' : '.'}
+            </p>
             <div className="theme-picker">
               <button type="button" className={`theme-card glass ${theme === 'dark' ? 'theme-card--active' : ''}`} onClick={() => setTheme('dark')} aria-pressed={theme === 'dark'}>
                 <div className="tp-preview tp-preview--dark" aria-hidden="true">
@@ -364,8 +410,8 @@ export function OnboardingScreen({ form, setForm, onSubmit, onCancel, loading, e
 
       <div className="ob-foot">
         {step > 1 && <button type="button" className="btn-ghost" onClick={() => setStep(step - 1)}>Back</button>}
-        {step === 5 && !partner.full_name && !partner.birth_date && (
-          <button type="button" className="btn-ghost" onClick={() => setStep(step + 1)}>Skip</button>
+        {step === 5 && (
+          <button type="button" className="btn-ghost" onClick={skipPartner}>Skip for now</button>
         )}
         <button type="button" className="btn-gold" disabled={!canGo || loading} onClick={go}>
           {loading ? 'Reading the stars...' : step === TOTAL_STEPS ? 'Generate My Reading' : 'Continue'}

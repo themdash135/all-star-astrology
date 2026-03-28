@@ -494,11 +494,33 @@ function ProfilePanel({ title, onBack, children }) {
 }
 
 const PARTNER_KEY = 'allstar-partner-info';
+const LC_STORAGE_KEY = 'allstar-compat-partner';
+
+function normalizePartnerRecord(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const partner = {
+    full_name: (raw.full_name || '').trim(),
+    birth_date: (raw.birth_date || '').trim(),
+    birth_time: (raw.birth_time || '').trim(),
+    birth_location: (raw.birth_location || '').trim(),
+    birth_location_display: (raw.birth_location_display || raw.birth_location || '').trim(),
+    birth_location_confirmed: raw.birth_location_confirmed !== false,
+  };
+  return partner;
+}
+
+function persistPartnerRecord(partner) {
+  const normalized = normalizePartnerRecord(partner);
+  if (!normalized) return;
+  const serialized = JSON.stringify(normalized);
+  safeSet(PARTNER_KEY, serialized);
+  safeSet(LC_STORAGE_KEY, serialized);
+}
 
 function PartnerInfoSection() {
   const [editing, setEditing] = useState(false);
   const raw = safeGet(PARTNER_KEY);
-  const saved = raw ? (() => { try { return JSON.parse(raw); } catch { return null; } })() : null;
+  const saved = raw ? (() => { try { return normalizePartnerRecord(JSON.parse(raw)); } catch { return null; } })() : null;
   const [name, setName] = useState(saved?.full_name || '');
   const [date, setDate] = useState(saved?.birth_date || '');
   const [time, setTime] = useState(saved?.birth_time || '');
@@ -539,17 +561,19 @@ function PartnerInfoSection() {
 
   function save() {
     if (!date) return;
-    safeSet(PARTNER_KEY, JSON.stringify({
+    persistPartnerRecord({
       full_name: name.trim(),
       birth_date: date,
-      birth_time: time || null,
-      birth_location: location.trim() || null,
-      birth_location_display: locDisplay.trim() || null,
-    }));
+      birth_time: time || '',
+      birth_location: location.trim(),
+      birth_location_display: locDisplay.trim(),
+      birth_location_confirmed: Boolean(location.trim()) && location.trim() === locDisplay.trim(),
+    });
     setEditing(false);
   }
   function clear() {
     safeSet(PARTNER_KEY, '');
+    safeSet(LC_STORAGE_KEY, '');
     setName(''); setDate(''); setTime(''); setLocation(''); setLocDisplay('');
     setEditing(false);
   }
@@ -581,7 +605,7 @@ function PartnerInfoSection() {
           <label className="mm-field-label">Where were they born?</label>
           <p className="ob-hint" style={{ marginTop: 4, marginBottom: 10 }}>Hospital name gives more accuracy for BaZi and Vedic calculations.</p>
           <div style={{ position: 'relative' }}>
-            <input className="mm-input" type="text" placeholder="Where were they born (Hospital name preferred)?" value={locDisplay}
+             <input className="mm-input" type="text" placeholder="Where were they born (Hospital name preferred)?" value={locDisplay}
               onChange={(e) => { setLocDisplay(e.target.value); setLocation(e.target.value); }}
               onFocus={() => setGeoFocus(true)}
               onBlur={() => setTimeout(() => setGeoFocus(false), 200)} />
@@ -663,7 +687,15 @@ function PatternDashboard() {
   }, [history]);
 
   if (patterns.length === 0) {
-    return <div className="v2-empty">Ask more Oracle questions to reveal your patterns.</div>;
+    const asked = history.length;
+    const needed = 3;
+    return (
+      <div className="v2-empty">
+        {asked === 0
+          ? `Ask ${needed}+ Oracle questions to reveal your patterns.`
+          : `${asked}/${needed} questions asked \u2014 ${asked < needed ? `ask ${needed - asked} more to reveal patterns.` : 'patterns will appear as themes emerge.'}`}
+      </div>
+    );
   }
 
   return (
@@ -697,8 +729,11 @@ export function ProfileContent({ form, result, onEdit, onReset, theme, setTheme,
     }
   }
 
-  const birthString = form.birth_date
-    ? new Date(`${form.birth_date}T12:00`).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+  const effectiveDate = form.birth_date || result?.meta?.birth_date || '';
+  const effectiveTime = form.birth_time || result?.meta?.birth_time || '';
+  const effectiveLocation = form.birth_location || result?.meta?.resolved_location || result?.meta?.birth_location || '';
+  const birthString = effectiveDate
+    ? new Date(`${effectiveDate}T12:00`).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     : 'Not set';
   const dna = extractCosmicDNA(result);
 
@@ -769,6 +804,7 @@ export function ProfileContent({ form, result, onEdit, onReset, theme, setTheme,
       <div className="prof-card glass">
         <div className="prof-av">{form.full_name ? form.full_name[0].toUpperCase() : '\u2605'}</div>
         <div className="prof-name serif">{form.full_name || 'Stargazer'}</div>
+        <div className="prof-tier">Free Plan</div>
         {form.hebrew_name && <div className="prof-heb" dir="rtl">{form.hebrew_name}</div>}
       </div>
 
@@ -798,8 +834,8 @@ export function ProfileContent({ form, result, onEdit, onReset, theme, setTheme,
         <div className="prof-group-title">Birth Data</div>
         <div className="prof-rows glass">
           <div className="prow"><span className="prow-l">Birth Date</span><span>{birthString}</span></div>
-          <div className="prow"><span className="prow-l">Birth Time</span><span>{form.birth_time || 'Not set'}</span></div>
-          <div className="prow"><span className="prow-l">Location</span><span>{form.birth_location || 'Not set'}</span></div>
+          <div className="prow"><span className="prow-l">Birth Time</span><span>{effectiveTime || 'Not set'}</span></div>
+          <div className="prow"><span className="prow-l">Location</span><span>{effectiveLocation || 'Not set'}</span></div>
           {result?.meta?.timezone && <div className="prow"><span className="prow-l">Timezone</span><span>{result.meta.timezone}</span></div>}
         </div>
       </div>

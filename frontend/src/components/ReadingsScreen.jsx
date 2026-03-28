@@ -125,7 +125,7 @@ export function ReadingsScreen({ form, onSystemTap }) {
               type="button"
               key={t.id}
               className="rdg-tool-card"
-              style={{ animationDelay: `${0.5 + i * 0.06}s` }}
+              style={{ animationDelay: `${0.5 + i * 0.06}s`, '--tool-hue': `${(i * 47) % 360}` }}
               onClick={() => setActiveTool(t.id)}
             >
               <span className="rdg-tool-glyph">{t.glyph}</span>
@@ -159,7 +159,7 @@ function Recommendations({ quizResults, onToolTap }) {
         if (seen.has(toolId)) continue;
         seen.add(toolId);
         const tool = FORTUNE_TOOLS.find((t) => t.id === toolId);
-        if (tool) items.push({ ...tool, reason: `Based on your ${res.title} result` });
+        if (tool) items.push({ ...tool, reason: `Based on your ${/^the /i.test(res.title) ? `'${res.title}'` : res.title} quiz result` });
       }
     }
     return items.slice(0, 4);
@@ -666,6 +666,7 @@ function ThreeCardReading({ form, spreadType = 'three', onBack }) {
 
 /* ── Match Making (8-System Compatibility) ── */
 const PARTNER_KEY = 'allstar-partner-info';
+const LC_STORAGE_KEY = 'allstar-compat-partner';
 const SIGN_ICONS_MM = {
   Aries:'\u2648',Taurus:'\u2649',Gemini:'\u264A',Cancer:'\u264B',Leo:'\u264C',Virgo:'\u264D',
   Libra:'\u264E',Scorpio:'\u264F',Sagittarius:'\u2650',Capricorn:'\u2651',Aquarius:'\u2652',Pisces:'\u2653',
@@ -1165,6 +1166,7 @@ function MatchMakingView({ form, onBack }) {
   const [expanded, setExpanded] = useState(null);
   const [loaded, setLoaded] = useState(false);
   const [showFullAnalysis, setShowFullAnalysis] = useState(false);
+  const hasSavedPartner = Boolean(partnerDate || partnerName || partnerLocation);
 
   useEffect(() => {
     try {
@@ -1182,8 +1184,17 @@ function MatchMakingView({ form, onBack }) {
 
   function doAnalyze() {
     if (!partnerDate) return;
-    const pf = { full_name: partnerName.trim(), birth_date: partnerDate, birth_time: partnerTime || null, birth_location: partnerLocation.trim() || null };
-    safeSet(PARTNER_KEY, JSON.stringify(pf));
+    const pf = {
+      full_name: partnerName.trim(),
+      birth_date: partnerDate,
+      birth_time: (partnerTime || '').trim(),
+      birth_location: partnerLocation.trim(),
+      birth_location_display: partnerLocation.trim(),
+      birth_location_confirmed: Boolean(partnerLocation.trim()),
+    };
+    const serialized = JSON.stringify(pf);
+    safeSet(PARTNER_KEY, serialized);
+    safeSet(LC_STORAGE_KEY, serialized);
     setResult(getFullCompatibility(form, pf));
     setExpanded(null);
   }
@@ -1192,6 +1203,10 @@ function MatchMakingView({ form, onBack }) {
     setResult(null);
     setExpanded(null);
     setShowFullAnalysis(false);
+  }
+
+  function useSavedPartner() {
+    doAnalyze();
   }
 
   if (!loaded) return null;
@@ -1297,6 +1312,18 @@ function MatchMakingView({ form, onBack }) {
         <h1 className="ft-title serif">Match Making</h1>
         <p className="ft-hero-sub">8-System Cosmic Compatibility</p>
       </div>
+
+      {hasSavedPartner && (
+        <div className="glass" style={{ padding: 14, marginBottom: 16 }}>
+          <h3 className="ft-sub-title serif" style={{ marginTop: 0 }}>Saved partner info found</h3>
+          <p className="mm-hint" style={{ marginTop: 0 }}>
+            {partnerName || 'Unnamed partner'}{partnerDate ? ` · ${partnerDate}` : ''}{partnerLocation ? ` · ${partnerLocation}` : ''}
+          </p>
+          <button type="button" className="btn-gold" onClick={useSavedPartner} style={{ width: '100%', marginTop: 6 }}>
+            Use Saved Partner Info
+          </button>
+        </div>
+      )}
 
       <h3 className="ft-sub-title serif">Partner's Name</h3>
       <input className="mm-input" type="text" placeholder="Enter name (optional)" value={partnerName}

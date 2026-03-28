@@ -127,6 +127,59 @@ PEACH_BLOSSOM_BRANCH = {
     "Hai": "Zi", "Mao": "Zi", "Wei": "Zi",
 }
 
+# ── Na Yin interpretations ───────────────────────────────────────
+NA_YIN_INTERPRETATIONS = {
+    "Metal in the Sea": "Metal in the Sea represents hidden treasure — vast potential lying beneath the surface. You carry quiet wealth of spirit and resilience that reveals itself under pressure. Your strength is not showy but enduring, like gold resting on the ocean floor.",
+    "Fire in the Furnace": "Fire in the Furnace is contained, purposeful flame — the forge that transforms raw material into something useful. You have the ability to refine ideas and people through focused intensity. Your passion works best when channeled into craft.",
+    "Wood of the Forest": "Wood of the Forest represents abundant, communal growth. You thrive in groups and ecosystems, contributing to something larger than yourself. Your nature is generous, expansive, and deeply rooted in shared purpose.",
+    "Metal on the Road": "Metal on the Road is the traveler's coin and the wanderer's blade — resourceful, mobile, and adaptable. You find value in movement and experience. Your strength lies in turning every journey into practical gain.",
+    "Fire of the Thunderbolt": "Fire of the Thunderbolt is sudden, dramatic, and illuminating. You have the power to shock people awake with your ideas and presence. Brilliant but unpredictable, your energy creates breakthroughs when others see only dead ends.",
+    "Earth on the Roof": "Earth on the Roof represents elevated stability — a vantage point built on solid ground. You see further than most because you build your foundations higher. Your gift is creating security that also provides perspective.",
+    "Water in the Stream": "Water in the Stream is gentle, persistent, and life-giving. You nourish everything you touch with quiet consistency. Your power is not in force but in steady flow — wearing down obstacles through patience and grace.",
+    "Earth on the Wall": "Earth on the Wall represents structure that protects and contains. You build solid foundations for others, and your greatest strength is creating security from seemingly fragile materials. You are the barrier between chaos and safety.",
+    "Metal of the Hairpin": "Metal of the Hairpin is refined, decorative, and precise. You have an eye for beauty and detail that others miss. Your strength lies in turning the ordinary into the exquisite through careful attention and taste.",
+    "Fire of the Mulberry": "Fire of the Mulberry is the slow burn of silk production — patient transformation that creates something precious. You understand that the most valuable outcomes require sustained warmth and time, not explosive heat.",
+    "Water of the Spring": "Water of the Spring is pure origin energy — fresh, vital, and renewing. You have the gift of starting things cleanly, bringing fresh perspective wherever you go. Others are drawn to your clarity and sense of new beginning.",
+    "Earth of the Sand": "Earth of the Sand is shifting, adaptable ground — capable of taking any shape. You are versatile and respond well to change, finding stability even in uncertain terrain. Your flexibility is your greatest asset.",
+    "Metal of the Sword": "Metal of the Sword is decisive, sharp, and purposeful. You cut through confusion and get to the heart of things. Your directness and courage make you a natural problem-solver, but you must temper your edge with compassion.",
+    "Fire of the Mountain": "Fire of the Mountain is the volcanic force beneath a calm exterior. You carry tremendous latent power that erupts at critical moments. Others may underestimate you, but your intensity runs deep and transforms landscapes.",
+    "Wood of the Flatland": "Wood of the Flatland represents broad, open growth without limits. You expand horizontally, touching many lives and areas. Your nature is generous, accessible, and community-oriented — the meadow rather than the single tree.",
+    "Water of the River": "Water of the River is powerful, directional, and unstoppable. Once you commit to a path, you carve through all obstacles. Your strength is in sustained momentum and the ability to carry others along with you.",
+    "Earth of the Fortress": "Earth of the Fortress is impregnable stability and protective strength. You are the person others shelter behind. Your gift is creating unshakeable structures — in relationships, careers, and communities.",
+    "Metal of the Axe": "Metal of the Axe is raw, functional power — the tool that clears the way. You are direct, efficient, and unafraid of hard work. Your strength lies in decisive action that makes space for new growth.",
+    "Fire of the Lamp": "Fire of the Lamp is steady, guiding light in the darkness. You illuminate intimate spaces and bring warmth to close relationships. Your power is in constancy — always burning, always present when others need direction.",
+    "Wood of the Pomegranate": "Wood of the Pomegranate represents hidden abundance — many seeds of potential within a single vessel. You carry multitudes within you, and your greatest gift is the variety and richness you bring to everything you touch.",
+    "Water of the Ocean": "Water of the Ocean is vast, deep, and all-encompassing. You contain multitudes and move with tidal power. Your emotional depth and intellectual breadth make you a force of nature — patient, powerful, and impossible to contain.",
+    "Earth of the Thunderclap": "Earth of the Thunderclap is sudden, startling solidity — the ground that shakes and settles stronger. You have the power to create dramatic shifts that ultimately stabilize. Your disruptions lead to better foundations.",
+    "Metal of the Mirror": "Metal of the Mirror reflects truth with perfect clarity. You show others what they need to see, and your insight cuts through pretense. Your gift is honest perception — you understand situations and people at a glance.",
+    "Fire of the Peak": "Fire of the Peak is the beacon on the mountaintop — visible to all, inspiring from a distance. You are meant to be seen and to guide. Your elevated passion draws others upward toward their own potential.",
+    "Wood of the Willow": "Wood of the Willow is graceful resilience — bending without breaking, beautiful in any storm. You survive through flexibility and quiet strength. Your ability to adapt while staying rooted makes you nearly unbreakable.",
+    "Water of the Well": "Water of the Well is deep, reliable sustenance — always there when needed. You are a dependable source of wisdom and emotional support. Your depth is not always visible on the surface, but those who draw from you find pure nourishment.",
+    "Earth of the Roof Tiles": "Earth of the Roof Tiles is practical protection crafted with care. You create shelter and safety through methodical, skilled effort. Your strength is in the everyday structures that keep life running smoothly.",
+    "Metal of the White Wax": "Metal of the White Wax is luminous purity — rare, beautiful, and refined through pressure. You have a gentle strength and an inner glow that comes from self-cultivation. Others see you as elegant and quietly powerful.",
+    "Fire of the Sky": "Fire of the Sky is lightning and aurora — cosmic, dramatic, and awe-inspiring. You operate on a grand scale and think in sweeping visions. Your energy is electric and transformative, but it needs grounding to be sustained.",
+    "Wood of the Cypress": "Wood of the Cypress is evergreen endurance — always growing, never losing your essential nature. You maintain your integrity through all seasons of life. Your constancy and quiet dignity earn deep, lasting respect.",
+    "Water of the Tap": "Water of the Tap is controlled, accessible flow — bringing sustenance where it is needed most. You are practical, service-oriented, and deeply useful to your community. Your strength is in reliable delivery of what matters.",
+    "Earth of the Earth": "Earth of the Earth is the purest expression of grounding energy — foundation upon foundation. You are deeply rooted, profoundly stable, and connected to the most fundamental forces of nature. Your presence alone calms and centers others.",
+}
+
+# ── Element practical advice ─────────────────────────────────────
+ELEMENT_ADVICE = {
+    "Wood": "surround yourself with plants, green spaces, and new beginnings — spend time outdoors, start creative projects, and embrace growth-oriented activities",
+    "Fire": "bring in warm colors, candles, social gatherings, and passion projects — seek out inspiring experiences, engage in public speaking, or enjoy entertainment and celebration",
+    "Earth": "focus on stability, nourishing food, grounding routines, and community — spend time in nature, garden, cook, and strengthen your home environment",
+    "Metal": "embrace structure, organization, and refinement — declutter your space, invest in quality over quantity, practice discipline, and honor traditions",
+    "Water": "seek flow, rest, and introspection — spend time near water, journal, meditate, prioritize sleep, and allow yourself to adapt rather than force outcomes",
+}
+
+ELEMENT_AVOID_ADVICE = {
+    "Wood": "avoid excessive rigidity, over-planning, or pushing growth too aggressively — do not overcommit to new starts without finishing current projects",
+    "Fire": "avoid overexposure, burnout, impulsive decisions, and emotional volatility — step back from drama and overstimulation",
+    "Earth": "avoid overthinking, excessive worry, hoarding, or getting stuck in comfort zones — do not let caution become paralysis",
+    "Metal": "avoid rigid routines, cold environments, excessive criticism, or perfectionism — do not let structure become a cage",
+    "Water": "avoid isolation, emotional overwhelm, excessive passivity, or escapism — do not let introspection become withdrawal",
+}
+
 # ── Symbolic stars lookup by day branch ───────────────────────────
 NOBLEMAN_STAR = {
     "Jia": ["Chou", "Wei"], "Yi": ["Zi", "Shen"], "Bing": ["You", "Hai"],
@@ -760,11 +813,60 @@ def calculate(context: dict[str, Any]) -> dict[str, Any]:
         highlight("Unfavorable elements", ", ".join(strength.get("unfavorable", []))),
     ]
 
+    # ── Build enriched insights ──
+    dm_personality_snippet = ""
+    if dm_profile:
+        dm_personality_snippet = f" {dm_profile.get('personality', '')}"
+
+    na_yin_name = natal["day"]["na_yin"]
+    na_yin_meaning = NA_YIN_INTERPRETATIONS.get(na_yin_name, "")
+
+    # Element strategy: actionable advice based on favorable/unfavorable
+    favorable_elements = strength["favorable"]
+    unfavorable_elements = strength.get("unfavorable", [])
+    favorable_advice_parts = [ELEMENT_ADVICE[e] for e in favorable_elements if e in ELEMENT_ADVICE]
+    unfavorable_advice_parts = [ELEMENT_AVOID_ADVICE[e] for e in unfavorable_elements if e in ELEMENT_AVOID_ADVICE]
+    element_strategy_text = strength["strategy"]
+    if favorable_advice_parts:
+        element_strategy_text += f" {' and '.join(e for e in favorable_elements)} support you — {'; '.join(favorable_advice_parts)}."
+    if unfavorable_advice_parts:
+        element_strategy_text += f" Reduce excess {' and '.join(e for e in unfavorable_elements)} energy: {'; '.join(unfavorable_advice_parts)}."
+
+    # Element balance: visual-friendly percentages with meaning
+    pct = balance["percentages"]
+    dominant_el = balance["dominant"]
+    weakest_el = balance["weakest"]
+    sorted_elements = sorted(pct.items(), key=lambda x: x[1], reverse=True)
+    pct_breakdown = ", ".join(f"{el} {val}%" for el, val in sorted_elements)
+    element_balance_meaning = f"Your element distribution is {pct_breakdown}. "
+    element_balance_meaning += f"{dominant_el} dominates at {pct[dominant_el]}% while {weakest_el} is scarce at {pct[weakest_el]}%. "
+    if dominant_el == "Metal":
+        element_balance_meaning += "This suggests strong determination and structure, but watch for emotional dryness or difficulty going with the flow."
+    elif dominant_el == "Water":
+        element_balance_meaning += "This suggests deep intuition and adaptability, but watch for lack of direction or difficulty setting firm boundaries."
+    elif dominant_el == "Wood":
+        element_balance_meaning += "This suggests strong growth energy and ambition, but watch for impatience or overextending yourself."
+    elif dominant_el == "Fire":
+        element_balance_meaning += "This suggests high passion and visibility, but watch for burnout, impulsiveness, or difficulty with sustained focus."
+    elif dominant_el == "Earth":
+        element_balance_meaning += "This suggests groundedness and reliability, but watch for overthinking, stubbornness, or resistance to change."
+    if weakest_el == "Water":
+        element_balance_meaning += " Low Water can mean difficulty relaxing, trusting your intuition, or going with the flow."
+    elif weakest_el == "Fire":
+        element_balance_meaning += " Low Fire can mean difficulty with self-expression, visibility, or sustaining enthusiasm."
+    elif weakest_el == "Wood":
+        element_balance_meaning += " Low Wood can mean difficulty starting new projects, asserting yourself, or maintaining growth momentum."
+    elif weakest_el == "Metal":
+        element_balance_meaning += " Low Metal can mean difficulty with discipline, letting go, or maintaining clear boundaries."
+    elif weakest_el == "Earth":
+        element_balance_meaning += " Low Earth can mean difficulty with stability, routine, or feeling grounded and secure."
+
     insights = [
-        insight("Day Master", f"The Day Master {day_master['stem']} ({day_master['stem_chinese']}) is {day_master['stem_element']} {day_master['stem_polarity']}. All Ten God relationships in your chart are measured from this stem. The Day Master represents your core identity."),
+        insight("Day Master", f"The Day Master {day_master['stem']} ({day_master['stem_chinese']}) is {day_master['stem_element']} {day_master['stem_polarity']}. All Ten God relationships in your chart are measured from this stem.{dm_personality_snippet}"),
         insight("Strength analysis", f"Supporting elements score {strength['support_score']} ({strength['support_pct']}%) vs draining elements {strength['drain_score']} ({strength['drain_pct']}%). Season bonus: {strength['season_bonus']}. The Day Master is {'strong' if strength['strong'] else 'weak'}."),
-        insight("Element strategy", strength["strategy"]),
-        insight("Na Yin", f"Your Day Pillar Na Yin is \"{natal['day']['na_yin']}\" — this is the sound-element of your birth day in the 60 Jiazi cycle, revealing a deeper layer of your elemental nature."),
+        insight("Element strategy", element_strategy_text),
+        insight("Na Yin", f"Your Day Pillar Na Yin is \"{na_yin_name}\" — this is the sound-element of your birth day in the 60 Jiazi cycle. {na_yin_meaning}"),
+        insight("Element balance", element_balance_meaning),
         insight("Current timing", f"Today's pillars are {current['year']['name']}, {current['month']['name']}, {current['day']['name']}, and {current['hour']['name']}. These transit energies interact with your natal chart to produce the current alignment scores."),
     ]
 

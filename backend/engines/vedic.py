@@ -433,11 +433,79 @@ def calculate(context: dict[str, Any]) -> dict[str, Any]:
         highlight("Strong yogas", ", ".join(yogas) if yogas else "None highlighted"),
     ]
 
+    # Dasha interpretation enrichment.
+    dasha_themes = {
+        "Sun": "leadership, authority, vitality, and public recognition. The Sun period illuminates your core identity and asks you to step into roles of responsibility",
+        "Moon": "emotional growth, nurturing, intuition, and domestic matters. The Moon period deepens your inner life and strengthens bonds with family and community",
+        "Mars": "courage, action, competition, and physical energy. The Mars period pushes you to fight for what you want and build strength through challenge",
+        "Mercury": "communication, intellect, trade, and adaptability. The Mercury period sharpens your mind and rewards learning, writing, and networking",
+        "Jupiter": "wisdom, expansion, spirituality, and good fortune. The Jupiter period opens doors through knowledge, generosity, and faith",
+        "Venus": "love, beauty, creativity, and material comfort. The Venus period enhances relationships, artistic pursuits, and worldly enjoyment",
+        "Saturn": "discipline, hard work, karmic lessons, and endurance. The Saturn period demands patience but builds lasting structures in your life",
+        "Rahu": "ambition, unconventional paths, obsessive focus, and worldly desire. The Rahu period drives you toward unfamiliar territory and rapid transformation",
+        "Ketu": "detachment, spiritual insight, past-life themes, and liberation. The Ketu period strips away illusions and draws you toward inner truth",
+    }
+    current_maha_lord = dasha['current_maha']['lord']
+    current_antar_lord = dasha['current_antar']['lord']
+    maha_theme = dasha_themes.get(current_maha_lord, "a distinct karmic theme that colors the entire life chapter")
+    antar_theme = dasha_themes.get(current_antar_lord, "its own sub-theme layered on top of the main period")
+    if current_maha_lord == current_antar_lord:
+        timing_text = (
+            f"The active {current_maha_lord} mahadasha brings focus to {maha_theme}. "
+            f"The {current_maha_lord}-{current_antar_lord} double period intensifies these themes, "
+            f"making this a concentrated window where {current_maha_lord} topics dominate your experience."
+        )
+    else:
+        timing_text = (
+            f"The active {current_maha_lord} mahadasha brings focus to {maha_theme}. "
+            f"Within that, the {current_antar_lord} antardasha adds focus to {antar_theme}. "
+            f"Together they create a layered rhythm shaping your current chapter."
+        )
+
+    # Yoga explanation enrichment.
+    yoga_meanings = {
+        "Gajakesari Yoga": "Jupiter and Moon in mutual angles — this yoga bestows wisdom, emotional resilience, lasting reputation, and the ability to inspire others",
+        "Budha Aditya Yoga": "Sun and Mercury conjoined — this yoga sharpens intellect, enhances communication skills, and supports recognition through knowledge and eloquence",
+        "Chandra Mangala Yoga": "Moon and Mars conjoined — this yoga creates emotional drive and wealth potential, giving you the courage to act on your feelings and pursue material goals",
+        "Raja Yoga signature": "lords of the 9th and 10th connected — this yoga indicates power, status, and leadership potential, suggesting your destiny supports positions of authority and public influence",
+        "Dhana Yoga signature": "lords of the 2nd and 11th connected — this yoga points to wealth accumulation and financial intelligence, favoring steady growth of assets and income streams",
+    }
+    if yogas:
+        yoga_parts = []
+        for y in yogas:
+            meaning = yoga_meanings.get(y, "a supportive planetary combination")
+            yoga_parts.append(f"{y}: {meaning}")
+        yogas_text = "Detected yoga signatures — " + ". ".join(yoga_parts) + "."
+    else:
+        yogas_text = "None of the simplified yoga signatures fired strongly in this chart, which does not mean the chart lacks strength — it simply means the classical combinations checked here are not tightly formed."
+
+    # Tithi/Yoga meaning enrichment.
+    tithi_meanings = {
+        "Pratipada": "a day of fresh beginnings and new intentions",
+        "Dvitiya": "a day favoring partnerships and cooperative ventures",
+        "Tritiya": "a day of creative expression and friendship",
+        "Chaturthi": "a day for overcoming obstacles with Ganesha's blessings",
+        "Panchami": "a day of learning, creativity, and romantic energy",
+        "Shashthi": "a day of victory over opposition and conflict resolution",
+        "Saptami": "a day of travel, movement, and solar vitality",
+        "Ashtami": "a day of transformation and confronting inner shadows",
+        "Navami": "a day of aggressive energy — good for bold action, challenging for peace",
+        "Dashami": "a day of achievement, celebration, and righteous action",
+        "Ekadashi": "a sacred day of spiritual devotion, fasting, and purification",
+        "Dvadashi": "a day favoring completion, release, and charitable giving",
+        "Trayodashi": "a day of auspiciousness, friendship, and Shiva's blessings",
+        "Chaturdashi": "a day of intense energy — powerful for spiritual practice, challenging otherwise",
+        "Purnima": "the full moon day — peak emotional and spiritual illumination",
+        "Amavasya": "the new moon day — a time of introspection, rest, and ancestor remembrance",
+    }
+    birth_tithi_meaning = tithi_meanings.get(tithi["name"], "a day with its own subtle quality")
+
     insights = [
-        insight("Mind and perception", f"Moon in {moon_sign} within {moon_nak['name']} often describes how you process feeling, memory, and instinctive responses."),
+        insight("Mind and perception", f"Moon in {moon_sign} within {moon_nak['name']} often describes how you process feeling, memory, and instinctive responses. The {moon_nak['name']} nakshatra, ruled by {moon_nak['ruler']}, adds a specific flavor — it shapes how your mind absorbs experience and what emotional textures feel most natural to you."),
         insight("Chart lordship", f"With {house_lords[1]} ruling the lagna and {house_lords[10]} ruling the 10th house, health and career are especially tied to those planets' house placements and dignity."),
-        insight("Timing", f"The active {dasha['current_maha']['lord']} / {dasha['current_antar']['lord']} period is treated here as the main timing backbone for current outlook scoring."),
-        insight("Yogas", f"Detected yoga signatures: {', '.join(yogas) if yogas else 'none of the simplified signatures fired strongly in this chart'}.") ,
+        insight("Timing", timing_text),
+        insight("Yogas", yogas_text),
+        insight("Birth tithi", f"You were born on {tithi['paksha']} {tithi['name']} — {birth_tithi_meaning}. This lunar day imprints a subtle quality on your temperament and the kinds of activities that feel most aligned with your nature."),
     ]
 
     return {

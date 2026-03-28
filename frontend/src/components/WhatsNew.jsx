@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { App as CapApp } from '@capacitor/app';
 
-const APP_VERSION = '1.1.1';
 const WHATS_NEW_KEY = 'allstar-whats-new-seen';
+const FALLBACK_BUILD = import.meta.env.VITE_APP_VERSION || 'dev-build';
 
 const UPDATES = [
   'Oracle and readings now work everywhere — no Wi-Fi or cable needed',
@@ -12,17 +13,34 @@ const UPDATES = [
 
 export function WhatsNew() {
   const [visible, setVisible] = useState(false);
+  const [buildId, setBuildId] = useState(FALLBACK_BUILD);
 
   useEffect(() => {
-    try {
-      const seen = localStorage.getItem(WHATS_NEW_KEY);
-      if (seen !== APP_VERSION) setVisible(true);
-    } catch { /* storage unavailable */ }
+    let cancelled = false;
+
+    async function checkVisibility() {
+      let nextBuildId = FALLBACK_BUILD;
+      try {
+        const info = await CapApp.getInfo();
+        nextBuildId = [info.version, info.build].filter(Boolean).join(' ') || FALLBACK_BUILD;
+      } catch {}
+
+      if (cancelled) return;
+      setBuildId(nextBuildId);
+
+      try {
+        const seen = localStorage.getItem(WHATS_NEW_KEY);
+        if (seen !== nextBuildId) setVisible(true);
+      } catch {}
+    }
+
+    checkVisibility();
+    return () => { cancelled = true; };
   }, []);
 
   const dismiss = () => {
     setVisible(false);
-    try { localStorage.setItem(WHATS_NEW_KEY, APP_VERSION); } catch {}
+    try { localStorage.setItem(WHATS_NEW_KEY, buildId); } catch {}
   };
 
   if (!visible) return null;
@@ -33,7 +51,7 @@ export function WhatsNew() {
         <div className="wn-glow" />
         <div className="wn-badge">NEW</div>
         <h2 className="wn-title">What's New</h2>
-        <p className="wn-version">Version {APP_VERSION}</p>
+        <p className="wn-version">Build {buildId}</p>
         <ul className="wn-list">
           {UPDATES.map((item, i) => (
             <li key={i} className="wn-item" style={{ animationDelay: `${i * 0.1}s` }}>

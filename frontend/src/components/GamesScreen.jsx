@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 
 import { playDice, playFate, playCompatibility, playNumerology } from '../app/games-engine.js';
 import { safeGet } from '../app/storage.js';
-import { IconBack } from './common.jsx';
 
 const PARTNER_KEY = 'allstar-partner-info';
 
@@ -190,8 +189,8 @@ export function GamesScreen({ form, onNavigate }) {
   return (
     <div className="gm-page fade-in">
       <div className="gm-back-row">
-        <button type="button" className="gm-back" onClick={goBack} aria-label="Back">
-          <IconBack />
+        <button type="button" className="gm-back-text" onClick={goBack}>
+          &larr; Back to Games
         </button>
       </div>
 

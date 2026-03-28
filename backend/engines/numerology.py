@@ -34,6 +34,144 @@ NUMBER_THEMES = {
     33: "teaching, stewardship, service",
 }
 
+# ── Life Path narratives ─────────────────────────────────────────
+LIFE_PATH_NARRATIVES = {
+    1: "Life Path 1 is The Pioneer — you are here to forge your own trail, lead by example, and master self-reliance. Your soul's curriculum is learning to trust your own vision and stand confidently alone when necessary. You are an originator, and your greatest fulfillment comes from creating something entirely your own.",
+    2: "Life Path 2 is The Diplomat — you are here to master the art of partnership, patience, and emotional sensitivity. Your soul's curriculum is learning to balance giving and receiving, to mediate, and to find strength in cooperation rather than competition. You are the peacemaker who weaves people together.",
+    3: "Life Path 3 is The Communicator — you are here to express, create, and inspire through words, art, or performance. Your soul's curriculum is learning to channel your abundant creative energy without scattering it. Joy is both your gift and your lesson — finding it, sharing it, and protecting it.",
+    4: "Life Path 4 is The Builder — you are here to create lasting structures, systems, and security. Your soul's curriculum is learning that discipline and consistency are forms of devotion, not limitation. You are the foundation upon which others build their dreams.",
+    5: "Life Path 5 is The Adventurer — you are here to experience freedom, change, and the full range of human sensation. Your soul's curriculum is learning to embrace transformation without losing your center. You teach others that change is not something to fear but something to ride.",
+    6: "Life Path 6 is The Nurturer — you are here to master responsibility, love, and service to family and community. Your soul's curriculum is learning to care deeply without sacrificing yourself. You create beauty and harmony wherever you go, and others depend on your steady warmth.",
+    7: "Life Path 7 is The Seeker — you are here to explore the mysteries of existence, to question, and to discover hidden truths. Your soul's curriculum is learning to trust both your intellect and your intuition. Solitude is your workshop, and wisdom is your ultimate product.",
+    8: "Life Path 8 is The Powerhouse — you are here to master abundance, authority, and material achievement. Your soul's curriculum is learning to wield power with integrity and to understand that true wealth includes generosity. You are meant to build empires that serve a purpose greater than profit.",
+    9: "Life Path 9 is The Humanitarian — you are here to complete, to release, and to serve the greater good. Your soul's curriculum is learning detachment with compassion — giving without keeping score. You carry the wisdom of all numbers before you and are meant to leave the world better than you found it.",
+    11: "Life Path 11 is The Illuminator — a master number path of heightened intuition, spiritual insight, and inspirational leadership. Your soul's curriculum is learning to channel intense inner vision into practical reality without being overwhelmed. You are a lightning rod for ideas that change how others see the world.",
+    22: "Life Path 22 is The Master Builder — the most powerful path in numerology, combining visionary idealism with practical execution at scale. Your soul's curriculum is learning to build something enduring that serves humanity. You think in blueprints while others think in sketches.",
+    33: "Life Path 33 is The Master Teacher — the rarest path, dedicated to selfless service, healing, and uplifting humanity through love. Your soul's curriculum is learning to embody unconditional compassion while maintaining boundaries. You teach by example, and your presence alone is transformative.",
+}
+
+# ── Pinnacle number interpretations ──────────────────────────────
+PINNACLE_INTERPRETATIONS = {
+    1: "This pinnacle phase calls you to develop independence, self-confidence, and personal initiative. It is a time to step forward as a leader and trust your own judgment.",
+    2: "This pinnacle phase asks for patience, diplomacy, and cooperation. Relationships and partnerships take center stage, and your growth comes through learning to collaborate.",
+    3: "This pinnacle phase is about creative expression, social expansion, and finding your voice. Joy, art, and communication are your primary tools for growth.",
+    4: "This pinnacle phase demands discipline, hard work, and building solid foundations. Progress may feel slow, but everything you construct now will endure.",
+    5: "This pinnacle phase brings change, travel, and unexpected opportunities. Flexibility and courage are required — resist clinging to what is comfortable.",
+    6: "This pinnacle phase centers on family, home, responsibility, and service. You are called to nurture and to create beauty and stability for those who depend on you.",
+    7: "This pinnacle phase invites introspection, study, and spiritual development. You may feel drawn to solitude — honor it, as deep wisdom is being cultivated within you.",
+    8: "This pinnacle phase is about material achievement, authority, and financial mastery. Ambition is rewarded, and you are learning to manage power with integrity.",
+    9: "This pinnacle phase asks for completion, release, and compassionate service. Let go of what no longer serves you and focus on contributing to something greater than yourself.",
+    11: "This pinnacle phase carries the energy of spiritual awakening and visionary inspiration. Intuitive flashes guide you — trust them, even when logic protests.",
+    22: "This pinnacle phase calls you to build something of lasting significance. Think big, plan carefully, and know that you have the capacity to manifest on a grand scale.",
+    33: "This pinnacle phase is about selfless service and teaching through love. Your personal growth is inseparable from how much you uplift others.",
+}
+
+# ── Challenge number interpretations ─────────────────────────────
+CHALLENGE_INTERPRETATIONS = {
+    0: "Your current challenge is the challenge of choice — all possibilities are open, and you must learn to define yourself without external limitations. This is rare and powerful.",
+    1: "Your current challenge is learning to assert yourself without dominating others. Find the balance between independence and cooperation.",
+    2: "Your current challenge is learning patience, diplomacy, and trusting the timing of partnerships. Avoid being overly sensitive or passive-aggressive.",
+    3: "Your current challenge is learning to focus your creative energy and express yourself authentically without scattering or seeking approval.",
+    4: "Your current challenge is learning to embrace discipline without becoming rigid, and to build structures that support rather than imprison.",
+    5: "Your current challenge is learning to embrace change constructively and resist the urge to either flee from responsibility or resist all transformation.",
+    6: "Your current challenge is learning to care for others without losing yourself, and to accept imperfection in those you love.",
+    7: "Your current challenge is learning to trust others and open up emotionally, rather than retreating into isolation or excessive analysis.",
+    8: "Your current challenge is learning to handle power, money, and authority without being consumed by ambition or fear of failure.",
+    9: "Your current challenge is learning to release attachments, forgive freely, and serve without expecting recognition or reward.",
+}
+
+# ── Expression / Soul Urge / Personality interpretations ─────────
+EXPRESSION_INTERPRETATIONS = {
+    1: "You project leadership, originality, and a pioneering spirit. Others see you as someone who gets things started and is not afraid to go first.",
+    2: "You project sensitivity, grace, and a cooperative nature. Others see you as a natural mediator and peacemaker.",
+    3: "You project creativity, charm, and expressive energy. Others see you as entertaining, articulate, and full of life.",
+    4: "You project reliability, practicality, and a strong work ethic. Others see you as the person who gets things done properly.",
+    5: "You project versatility, magnetism, and a love of freedom. Others see you as dynamic, adventurous, and impossible to pin down.",
+    6: "You project warmth, responsibility, and a nurturing presence. Others see you as the glue that holds groups and families together.",
+    7: "You project depth, intelligence, and a mysterious quality. Others see you as thoughtful, analytical, and spiritually attuned.",
+    8: "You project authority, business acumen, and material competence. Others see you as powerful, ambitious, and capable of handling large-scale endeavors.",
+    9: "You project compassion, worldliness, and an inclusive spirit. Others see you as wise, generous, and connected to something larger than yourself.",
+    11: "You project inspiration, spiritual insight, and visionary energy. Others see you as someone who operates on a higher frequency.",
+    22: "You project mastery, ambition, and the ability to turn dreams into reality. Others see you as a builder of extraordinary things.",
+    33: "You project unconditional love, wisdom, and a teaching presence. Others see you as a healer and spiritual guide.",
+}
+
+SOUL_URGE_INTERPRETATIONS = {
+    1: "Deep down, you crave independence, originality, and the freedom to follow your own path without interference.",
+    2: "Deep down, you crave harmony, partnership, and the comfort of knowing you are truly understood by another soul.",
+    3: "Deep down, you crave joyful self-expression, creative recognition, and an audience for your ideas and art.",
+    4: "Deep down, you crave order, security, and the satisfaction of building something that lasts.",
+    5: "Deep down, you crave freedom, variety, and sensory experience — you need to feel alive through change and exploration.",
+    6: "Deep down, you crave harmony, family, and beauty. Your heart is most at peace when those you love are safe and happy.",
+    7: "Deep down, you crave understanding, solitude, and access to hidden truths. Your inner world is rich and demands exploration.",
+    8: "Deep down, you crave achievement, recognition, and the ability to shape the material world according to your vision.",
+    9: "Deep down, you crave meaning, service, and a life that contributes to the greater good of humanity.",
+    11: "Deep down, you crave spiritual connection, inspiration, and the ability to channel higher wisdom into everyday life.",
+    22: "Deep down, you crave the power to build something monumental — your inner drive is to leave a legacy that outlasts you.",
+    33: "Deep down, you crave the ability to heal and uplift humanity through pure, unconditional love and selfless service.",
+}
+
+PERSONALITY_INTERPRETATIONS = {
+    1: "Others perceive you as confident, independent, and assertive. You make a strong first impression and seem like a natural leader.",
+    2: "Others perceive you as gentle, approachable, and tactful. You seem easy to confide in and naturally supportive.",
+    3: "Others perceive you as charismatic, witty, and socially magnetic. You light up a room and seem effortlessly entertaining.",
+    4: "Others perceive you as dependable, grounded, and no-nonsense. You seem practical, organized, and trustworthy.",
+    5: "Others perceive you as exciting, attractive, and unpredictable. You seem like someone who lives life to the fullest.",
+    6: "Others perceive you as caring, responsible, and aesthetically refined. You seem like the person everyone turns to for comfort.",
+    7: "Others perceive you as reserved, intelligent, and somewhat enigmatic. You seem to know more than you reveal.",
+    8: "Others perceive you as powerful, composed, and financially savvy. You carry an aura of authority and success.",
+    9: "Others perceive you as cultured, compassionate, and worldly. You seem to understand people from all walks of life.",
+    11: "Others perceive you as inspired, visionary, and operating on a different wavelength. You seem touched by something beyond the ordinary.",
+    22: "Others perceive you as extraordinarily capable, systematic, and destined for large-scale achievement.",
+    33: "Others perceive you as a source of light and wisdom — a natural healer whose presence alone is comforting.",
+}
+
+# ── Personal Year narratives ─────────────────────────────────────
+PERSONAL_YEAR_NARRATIVES = {
+    1: "a year of new beginnings, fresh starts, and planting seeds for the next nine-year cycle",
+    2: "a year of patience, partnerships, and letting things develop at their own pace",
+    3: "a year of creative expansion, social visibility, and joyful self-expression",
+    4: "a year of hard work, foundation-building, and disciplined progress",
+    5: "a year of change, freedom, and unexpected opportunities that demand flexibility",
+    6: "a year of home, family, responsibility, and deepening commitments",
+    7: "a year of reflection, inner work, and spiritual or intellectual deepening",
+    8: "a power year for financial decisions, career advancement, and material achievement",
+    9: "a year of completion, release, and clearing the way for what comes next",
+    11: "a master number year of heightened intuition, spiritual downloads, and inspired action",
+    22: "a master number year of visionary building and large-scale manifestation",
+    33: "a master number year of profound teaching, healing, and selfless service",
+}
+
+PERSONAL_MONTH_FLAVORS = {
+    1: "initiative and solo action",
+    2: "cooperation and subtle sensitivity",
+    3: "creative expression and social connection",
+    4: "structure and methodical effort",
+    5: "change and restless energy",
+    6: "nurturing and domestic focus",
+    7: "introspection and quiet analysis",
+    8: "financial power and executive energy",
+    9: "release, generosity, and completion",
+    11: "intuitive flashes and spiritual intensity",
+    22: "large-scale vision and practical mastery",
+    33: "compassionate service and teaching",
+}
+
+PERSONAL_DAY_FLAVORS = {
+    1: "bold action and new initiatives",
+    2: "patience and diplomatic finesse",
+    3: "communication, joy, and visibility",
+    4: "methodical work and physical effort",
+    5: "spontaneity and embracing the unexpected",
+    6: "family, beauty, and acts of service",
+    7: "solitude, study, and inner clarity",
+    8: "financial decisions and power moves",
+    9: "forgiveness, letting go, and humanitarian gestures",
+    11: "inspired ideas and trusting your gut",
+    22: "turning vision into concrete steps",
+    33: "healing through presence and love",
+}
+
 
 def _digit_sum(value: str | int) -> int:
     return sum(int(char) for char in str(value) if char.isdigit())
@@ -268,13 +406,39 @@ def calculate(context: dict[str, Any]) -> dict[str, Any]:
             highlight("Personality", name_numbers["personality"]),
         ])
 
+    # ── Build enriched insights ──
+    lp_narrative = LIFE_PATH_NARRATIVES.get(life_path, f"Life Path {life_path} carries the themes of {NUMBER_THEMES.get(life_path, 'unique expression')}. This is your core vibration and lifelong lesson.")
+
+    # Current timing narrative
+    py_narrative = PERSONAL_YEAR_NARRATIVES.get(personal_year, f"a year aligned with the energy of {NUMBER_THEMES.get(personal_year, 'personal evolution')}")
+    pm_flavor = PERSONAL_MONTH_FLAVORS.get(personal_month, f"the energy of {NUMBER_THEMES.get(personal_month, 'this cycle')}")
+    pd_flavor = PERSONAL_DAY_FLAVORS.get(personal_day, f"the energy of {NUMBER_THEMES.get(personal_day, 'this day')}")
+    timing_text = f"Personal Year {personal_year} + Month {personal_month} + Day {personal_day}: You are in {py_narrative}. This month adds {pm_flavor}, and today specifically favors {pd_flavor}."
+    if personal_month in {11, 22, 33}:
+        timing_text += f" The master number {personal_month} month amplifies intuitive and spiritual energy — trust your deeper knowing today."
+    if personal_day in {11, 22, 33}:
+        timing_text += f" A master number {personal_day} day signals a peak moment for inspired action."
+
+    # Pinnacle and challenge interpretations
+    pinnacle_meaning = PINNACLE_INTERPRETATIONS.get(active_pinnacle, f"Pinnacle {active_pinnacle} brings the energy of {NUMBER_THEMES.get(active_pinnacle, 'this vibration')} into your developmental arc.")
+    challenge_meaning = CHALLENGE_INTERPRETATIONS.get(active_challenge, f"Challenge {active_challenge} asks you to work with the themes of {NUMBER_THEMES.get(active_challenge, 'growth and adaptation')}.")
+    pinnacle_text = f"Active pinnacle {active_pinnacle} and challenge {active_challenge} describe your current developmental chapter (ages {active_range}). {pinnacle_meaning} {challenge_meaning}"
+
     insights = [
-        insight("Life Path", f"Life Path {life_path} is the main long-run signature and describes the overall lesson emphasis of the lifetime."),
-        insight("Current timing", f"Personal Year {personal_year}, Month {personal_month}, and Day {personal_day} create the current timing stack for the probabilities below."),
-        insight("Pinnacles", f"Active pinnacle {active_pinnacle} and challenge {active_challenge} describe the current developmental chapter running through age {context['age_years']}."),
+        insight("Life Path", lp_narrative),
+        insight("Current timing", timing_text),
+        insight("Pinnacles and challenges", pinnacle_text),
     ]
     if name_numbers:
-        insights.append(insight("Name-based layer", f"Expression {name_numbers['expression']}, Soul Urge {name_numbers['soul_urge']}, and Personality {name_numbers['personality']} add the name-based layer to the birth-date core."))
+        expr_num = name_numbers["expression"]
+        soul_num = name_numbers["soul_urge"]
+        pers_num = name_numbers["personality"]
+        expr_text = EXPRESSION_INTERPRETATIONS.get(expr_num, f"Expression {expr_num} channels the energy of {NUMBER_THEMES.get(expr_num, 'your unique vibration')}.")
+        soul_text = SOUL_URGE_INTERPRETATIONS.get(soul_num, f"Soul Urge {soul_num} resonates with {NUMBER_THEMES.get(soul_num, 'your inner drive')}.")
+        pers_text = PERSONALITY_INTERPRETATIONS.get(pers_num, f"Personality {pers_num} projects {NUMBER_THEMES.get(pers_num, 'your outer image')}.")
+        insights.append(insight("Expression", f"Expression number {expr_num}: {expr_text}"))
+        insights.append(insight("Soul Urge", f"Soul Urge number {soul_num}: {soul_text}"))
+        insights.append(insight("Personality", f"Personality number {pers_num}: {pers_text}"))
 
     tables = [
         table("Core numbers", ["Number", "Value", "Theme"], core_rows),

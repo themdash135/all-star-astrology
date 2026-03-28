@@ -11,10 +11,24 @@ import { readStoredOracleHistory, safeSet } from '../app/storage.js';
 import { apiPost } from '../app/api.js';
 import { Accordion, IconChevron, IconSettings } from './common.jsx';
 
-const STARTER_PROMPTS = [
+const ALL_STARTER_PROMPTS = [
   'What energy is around me today?',
   'What should I focus on this week?',
+  'Is this a good time for a big decision?',
+  'What\'s blocking my growth right now?',
+  'How can I improve my relationships?',
 ];
+
+function pickStarterPrompts(count = 4) {
+  const today = new Date();
+  const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+  const shuffled = [...ALL_STARTER_PROMPTS];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = (seed * (i + 1) + 7) % (i + 1);
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled.slice(0, count);
+}
 
 // ── Premium staged-reveal result ─────────────────────────────────
 
@@ -308,6 +322,7 @@ export function OracleScreen({ result, reducedMotion, onOpenSettings }) {
   const nearLimit = question.length >= 240;
   const daily = getDailyContent(result);
   const dna = extractCosmicDNA(result);
+  const [starterPrompts] = useState(() => pickStarterPrompts(4));
   const sortedAreas = Object.entries(result?.combined?.probabilities || {}).sort((left, right) => right[1].value - left[1].value);
   const focusLabel = daily.focus?.label || daily.focus?.area || sortedAreas[0]?.[0] || '';
   const cautionLabel = daily.caution?.label || daily.caution?.area || sortedAreas[sortedAreas.length - 1]?.[0] || '';
@@ -379,7 +394,7 @@ export function OracleScreen({ result, reducedMotion, onOpenSettings }) {
               <div className="oracle-suggestions">
                 <span className="oracle-suggestions-label">Try:</span>
                 <div className="oracle-suggestions-row">
-                  {STARTER_PROMPTS.map((prompt) => (
+                  {starterPrompts.map((prompt) => (
                     <button
                       type="button"
                       key={prompt}

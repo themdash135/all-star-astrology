@@ -52,6 +52,10 @@ def _analytics_path() -> Path:
     _base_dir().mkdir(parents=True, exist_ok=True)
     return _base_dir() / "analytics.jsonl"
 
+def _feedback_path() -> Path:
+    _base_dir().mkdir(parents=True, exist_ok=True)
+    return _base_dir() / "feedback.json"
+
 # ── System constants ────────────────────────────────────────────────
 
 SYSTEM_NAMES = (
@@ -181,6 +185,93 @@ def log_event(
             fh.write(json.dumps(record, default=str) + "\n")
     except Exception:
         logger.exception("Failed to write admin analytics log")
+
+
+# ── Feedback ticket storage ────────────────────────────────────────
+
+_FEEDBACK_STATUSES = {"pending", "in_progress", "resolved"}
+
+
+def _read_feedback_tickets() -> list[dict[str, Any]]:
+    path = _feedback_path()
+    if not path.exists():
+        return []
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        logger.exception("Failed to read feedback tickets")
+        return []
+    return raw if isinstance(raw, list) else []
+
+
+def _write_feedback_tickets(tickets: list[dict[str, Any]]) -> None:
+    _feedback_path().write_text(
+        json.dumps(tickets, indent=2, default=str),
+        encoding="utf-8",
+    )
+
+
+def create_feedback_ticket(
+    *,
+    user_id: str,
+    category: str,
+    message: str,
+    name: str = "",
+    contact: str = "",
+) -> dict[str, Any]:
+    now = datetime.now(timezone.utc).isoformat()
+    ticket = {
+        "id": uuid.uuid4().hex[:8],
+        "user_id": user_id,
+        "email": contact or user_id,
+        "name": name,
+        "category": category,
+        "message": message,
+        "status": "pending",
+        "created": now,
+        "updated": now,
+        "responses": [],
+    }
+    tickets = _read_feedback_tickets()
+    tickets.append(ticket)
+    _write_feedback_tickets(tickets)
+    return ticket
+
+
+def list_feedback_tickets(*, user_id: str | None = None) -> list[dict[str, Any]]:
+    tickets = _read_feedback_tickets()
+    if user_id:
+        tickets = [
+            t for t in tickets
+            if t.get("user_id") == user_id or t.get("email") == user_id
+        ]
+    return sorted(tickets, key=lambda item: item.get("updated") or item.get("created") or "", reverse=True)
+
+
+def append_feedback_response(
+    ticket_id: str,
+    *,
+    message: str,
+    status: str = "in_progress",
+) -> dict[str, Any]:
+    normalized_status = status if status in _FEEDBACK_STATUSES else "in_progress"
+    tickets = _read_feedback_tickets()
+    now = datetime.now(timezone.utc).isoformat()
+    for ticket in tickets:
+        if ticket.get("id") != ticket_id:
+            continue
+        response = {
+            "id": uuid.uuid4().hex[:10],
+            "message": message,
+            "created": now,
+            "status": normalized_status,
+        }
+        ticket.setdefault("responses", []).append(response)
+        ticket["status"] = normalized_status
+        ticket["updated"] = now
+        _write_feedback_tickets(tickets)
+        return ticket
+    raise KeyError(ticket_id)
 
 
 # ── Quality heuristics ──────────────────────────────────────────────

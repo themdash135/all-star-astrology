@@ -5,6 +5,8 @@ export const THEME_KEY = 'allstar-theme';
 export const MOTION_KEY = 'allstar-motion';
 export const ORACLE_HISTORY_KEY = 'allstar-oracle-history';
 export const ORACLE_HISTORY_LIMIT = 12;
+export const FEEDBACK_USER_KEY = 'allstar-feedback-user';
+export const FEEDBACK_SEEN_KEY = 'allstar-feedback-seen';
 
 export const BLANK = {
   birth_date: '',

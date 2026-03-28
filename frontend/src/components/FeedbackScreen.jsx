@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiPost, apiGet } from '../app/api.js';
-import { readStoredForm } from '../app/storage.js';
+import { getOrCreateFeedbackUserKey, readStoredForm } from '../app/storage.js';
 
 const CATEGORIES = [
   { id: 'error', label: 'Error', icon: '\u{26a0}\u{fe0f}' },
@@ -14,19 +14,27 @@ export function FeedbackScreen() {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const [lastTicketId, setLastTicketId] = useState('');
   const [tickets, setTickets] = useState([]);
+  const [loadingTickets, setLoadingTickets] = useState(false);
 
   // Get user identity from onboarding form
   const form = readStoredForm();
   const userName = form?.full_name || 'User';
-  const userKey = (form?.full_name || '').trim().toLowerCase().replace(/\s+/g, '-') || 'anonymous';
+  const userKey = getOrCreateFeedbackUserKey();
 
   // Check for responses
-  useEffect(() => {
+  const loadTickets = () => {
     if (!userKey) return;
-    apiGet(`feedback/check?email=${encodeURIComponent(userKey)}`)
+    setLoadingTickets(true);
+    apiGet(`feedback/check?user_id=${encodeURIComponent(userKey)}&email=${encodeURIComponent(userKey)}`)
       .then(data => setTickets(data.tickets || []))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoadingTickets(false));
+  };
+
+  useEffect(() => {
+    loadTickets();
   }, [userKey, confirmed]);
 
   const [submitError, setSubmitError] = useState('');
@@ -37,16 +45,20 @@ export function FeedbackScreen() {
     setSubmitError('');
 
     try {
-      await apiPost('feedback/submit', {
+      const response = await apiPost('feedback/submit', {
+        user_id: userKey,
         email: userKey,
         category,
         message: message.trim(),
         name: userName,
+        contact: '',
       });
+      setLastTicketId(response.ticket_id || '');
       setConfirmed(true);
       setMessage('');
-    } catch {
-      setSubmitError('Could not send feedback. Please check your connection and try again.');
+      loadTickets();
+    } catch (err) {
+      setSubmitError(err?.message || 'Could not send feedback. Please check your connection and try again.');
     } finally {
       setSending(false);
     }
@@ -63,7 +75,7 @@ export function FeedbackScreen() {
           <div className="lg-fb-confirm-icon">{'\u{2705}'}</div>
           <h2 className="lg-fb-confirm-title">Thank You, {userName.split(' ')[0]}!</h2>
           <p className="lg-fb-confirm-text">
-            Your feedback has been received. We'll review it and get back to you here when it's resolved.
+            Your message was sent to the admin team{lastTicketId ? ` as ticket #${lastTicketId}` : ''}. We&apos;ll confirm here when it has been fixed.
           </p>
           <button
             type="button"
@@ -83,6 +95,9 @@ export function FeedbackScreen() {
         <div className="lg-fb-glow" />
         <h2 className="lg-fb-title">Feedback</h2>
         <p className="lg-fb-sub">Help shape the future of All Star Astrology</p>
+        <p className="ob-hint" style={{ marginTop: 8, marginBottom: 0 }}>
+          We read every message. If your feedback leads to a change, we'll let you know right here.
+        </p>
       </div>
 
       {/* Admin responses */}
@@ -91,7 +106,7 @@ export function FeedbackScreen() {
           {tickets.filter(t => t.has_response).map(t => (
             <div key={t.id} className="lg-fb-response-card">
               <div className="lg-fb-response-header">
-                <span className="lg-fb-response-badge">Update</span>
+                <span className="lg-fb-response-badge">{t.status === 'resolved' ? 'Fixed' : 'Update'}</span>
                 <span className="lg-fb-response-cat">{t.category}</span>
               </div>
               <p className="lg-fb-response-your">You reported: {t.message}</p>
@@ -127,9 +142,9 @@ export function FeedbackScreen() {
           className="lg-fb-input"
           placeholder={
             category === 'error' ? 'What went wrong? What did you see?'
-            : category === 'feature' ? 'Describe the feature you\'d love to see...'
-            : category === 'improve' ? 'What could be better?'
-            : 'Share your thoughts...'
+            : category === 'feature' ? 'What feature would you like to see?'
+            : category === 'improve' ? 'What could work better?'
+            : 'Tell us what\'s on your mind...'
           }
           value={message}
           onChange={e => setMessage(e.target.value.slice(0, 1000))}
@@ -149,6 +164,22 @@ export function FeedbackScreen() {
         <span>{sending ? 'Sending...' : 'Send Feedback'}</span>
       </button>
 
+      {tickets.length > 0 && (
+        <button
+          type="button"
+          onClick={loadTickets}
+          disabled={loadingTickets}
+          style={{
+            width: '100%', marginTop: 12, padding: 8,
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: 'var(--muted)', fontSize: '.8rem', textDecoration: 'underline',
+            opacity: loadingTickets ? 0.5 : 0.7,
+          }}
+        >
+          {loadingTickets ? 'Refreshing...' : 'Refresh ticket status'}
+        </button>
+      )}
+
       {/* Past tickets without responses */}
       {tickets.filter(t => !t.has_response).length > 0 && (
         <div className="lg-fb-history">
@@ -157,7 +188,7 @@ export function FeedbackScreen() {
             <div key={t.id} className="lg-fb-history-item">
               <span className="lg-fb-history-cat">{t.category}</span>
               <span className="lg-fb-history-msg">{t.message}</span>
-              <span className="lg-fb-history-status">Pending</span>
+              <span className="lg-fb-history-status">{t.status === 'in_progress' ? 'Reviewing' : 'Pending'}</span>
             </div>
           ))}
         </div>

@@ -14,10 +14,13 @@ from unittest.mock import patch
 from backend import admin
 from backend.admin import (
     SYSTEM_NAMES,
+    append_feedback_response,
+    create_feedback_ticket,
     get_analytics,
     get_health,
     get_quality_summary,
     get_session,
+    list_feedback_tickets,
     list_sessions,
     log_error,
     log_event,
@@ -54,6 +57,10 @@ def _healthy_compat_result() -> dict:
     }
     systems = {name: _make_system_payload() for name in SYSTEM_NAMES}
     return {**sections, "systems": systems}
+
+
+def _feedback_path(tmp_path: Path) -> Path:
+    return tmp_path / "admin" / "feedback.json"
 
 
 @pytest.fixture(autouse=True)
@@ -693,3 +700,38 @@ class TestInternalHelpers:
         assert admin._status_from_flags(["a", "b"]) == "review"
         assert admin._status_from_flags(["a", "b", "c"]) == "poor"
         assert admin._status_from_flags(["a", "b", "c", "d"]) == "poor"
+
+
+class TestFeedbackTickets:
+    def test_create_feedback_ticket_persists_to_disk(self, tmp_path):
+        ticket = create_feedback_ticket(
+            user_id="user-123",
+            category="error",
+            message="The feedback tab did not confirm submission.",
+            name="Taylor",
+        )
+
+        assert ticket["status"] == "pending"
+        saved = json.loads(_feedback_path(tmp_path).read_text(encoding="utf-8"))
+        assert saved[0]["user_id"] == "user-123"
+        assert saved[0]["message"] == "The feedback tab did not confirm submission."
+
+    def test_append_feedback_response_updates_status(self):
+        ticket = create_feedback_ticket(
+            user_id="user-123",
+            category="improve",
+            message="Please make admin responses clearer.",
+        )
+
+        updated = append_feedback_response(ticket["id"], message="We fixed the confirmation state and shipped it.", status="resolved")
+
+        assert updated["status"] == "resolved"
+        assert updated["responses"][-1]["status"] == "resolved"
+
+    def test_list_feedback_tickets_filters_by_user(self):
+        create_feedback_ticket(user_id="user-a", category="other", message="A")
+        keep = create_feedback_ticket(user_id="user-b", category="other", message="B")
+
+        tickets = list_feedback_tickets(user_id="user-b")
+
+        assert [ticket["id"] for ticket in tickets] == [keep["id"]]

@@ -8,6 +8,33 @@ const PERIODS = [
   { label: 'All', hours: null },
 ];
 
+/** Map raw event names to human-readable labels */
+const EVENT_LABELS = {
+  reading_generated: 'Readings Generated',
+  section_view: 'Section Views',
+  oracle_question: 'Oracle Questions',
+  oracle_ask: 'Oracle Questions',
+  app_open: 'App Opens',
+  app_launch: 'App Launches',
+  onboarding_complete: 'Onboarding Completed',
+  onboarding_start: 'Onboarding Started',
+  theme_change: 'Theme Changes',
+  feedback_submit: 'Feedback Submitted',
+  feedback_sent: 'Feedback Sent',
+  share: 'Shares',
+  share_reading: 'Reading Shares',
+  error: 'Errors',
+  settings_open: 'Settings Opened',
+  edit_birth_data: 'Birth Data Edits',
+  daily_view: 'Daily Views',
+  combined_view: 'Combined Views',
+  game_play: 'Games Played',
+};
+
+function humanLabel(rawName) {
+  return EVENT_LABELS[rawName] || rawName.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function formatTimestamp(ts) {
   if (!ts) return '\u2014';
   try {
@@ -56,6 +83,8 @@ export function AdminAnalytics() {
 
   const sectionViews = data?.section_views || {};
   const sectionEntries = Object.entries(sectionViews).sort((a, b) => b[1] - a[1]);
+  const totalSectionViews = sectionEntries.reduce((sum, [, v]) => sum + v, 0);
+  const maxSectionViews = sectionEntries.length > 0 ? sectionEntries[0][1] : 1;
 
   const recent = data?.recent || [];
 
@@ -73,7 +102,7 @@ export function AdminAnalytics() {
       <div className="admin-page">
         <h2 className="admin-title">Analytics Dashboard</h2>
         <p className="admin-empty">{error}</p>
-        <button className="admin-card" onClick={fetchAnalytics} style={{ cursor: 'pointer', marginTop: '1rem' }}>
+        <button className="admin-refresh-btn" onClick={fetchAnalytics} style={{ marginTop: '1rem' }}>
           Retry
         </button>
       </div>
@@ -84,13 +113,12 @@ export function AdminAnalytics() {
     <div className="admin-page">
       <h2 className="admin-title">Analytics Dashboard</h2>
 
-      {/* Period selector */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+      {/* Period selector — pill toggle */}
+      <div className="admin-pill-group">
         {PERIODS.map((p) => (
           <button
             key={p.label}
-            className={period === p.hours ? 'admin-login-btn' : 'admin-card'}
-            style={{ cursor: 'pointer', padding: '0.5rem 1rem', fontSize: 'var(--fs-sm)' }}
+            className={`admin-pill${period === p.hours ? ' admin-pill--active' : ''}`}
             onClick={() => setPeriod(p.hours)}
           >
             {p.label}
@@ -107,7 +135,7 @@ export function AdminAnalytics() {
 
         <div className="admin-card">
           <div className="admin-card__value">
-            {topEvent ? `${topEvent[0]}` : '\u2014'}
+            {topEvent ? humanLabel(topEvent[0]) : '\u2014'}
           </div>
           <div className="admin-card__label">
             Top Event{topEvent ? ` (${topEvent[1]})` : ''}
@@ -124,14 +152,14 @@ export function AdminAnalytics() {
         <table className="admin-table">
           <thead>
             <tr>
-              <th>Event Name</th>
+              <th>Event</th>
               <th>Count</th>
             </tr>
           </thead>
           <tbody>
             {eventCountEntries.map(([name, count]) => (
               <tr key={name}>
-                <td>{name}</td>
+                <td>{humanLabel(name)}</td>
                 <td>{count}</td>
               </tr>
             ))}
@@ -154,6 +182,8 @@ export function AdminAnalytics() {
           </thead>
           <tbody>
             {sectionEntries.map(([section, views], i) => {
+              const pct = totalSectionViews > 0 ? ((views / totalSectionViews) * 100).toFixed(1) : '0.0';
+              const barWidth = maxSectionViews > 0 ? Math.max(2, (views / maxSectionViews) * 100) : 0;
               const isTop3 = i < 3;
               const isBottom3 = sectionEntries.length > 3 && i >= sectionEntries.length - 3;
               const rowStyle = isTop3
@@ -163,8 +193,13 @@ export function AdminAnalytics() {
                   : {};
               return (
                 <tr key={section} style={rowStyle}>
-                  <td>{section}</td>
-                  <td>{views}</td>
+                  <td>{section} ({pct}%)</td>
+                  <td>
+                    <div className="admin-bar-cell">
+                      <div className="admin-bar" style={{ width: `${barWidth}%`, maxWidth: '120px' }} />
+                      <span className="admin-bar-count">{views}</span>
+                    </div>
+                  </td>
                 </tr>
               );
             })}
@@ -190,7 +225,7 @@ export function AdminAnalytics() {
             {recent.slice(0, 50).map((item, i) => (
               <tr key={i}>
                 <td>{formatTimestamp(item.timestamp)}</td>
-                <td>{item.event || '\u2014'}</td>
+                <td>{humanLabel(item.event || '')}</td>
                 <td>{formatDetails(item.data)}</td>
               </tr>
             ))}
