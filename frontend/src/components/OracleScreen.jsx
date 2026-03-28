@@ -450,11 +450,11 @@ export function OracleScreen({ result, reducedMotion, onOpenSettings }) {
           <div className="dodont-cols">
             <div className="dodont-col">
               <div className="dodont-hd dodont-hd--do">DO</div>
-              {daily.dos.map((item, index) => <p key={index} className="dodont-item dodont-item--do">{item}</p>)}
+              {(daily.dos || []).map((item, index) => <p key={index} className="dodont-item dodont-item--do">{item}</p>)}
             </div>
             <div className="dodont-col">
               <div className="dodont-hd dodont-hd--dont">DON'T</div>
-              {daily.donts.map((item, index) => <p key={index} className="dodont-item dodont-item--dont">{item}</p>)}
+              {(daily.donts || []).map((item, index) => <p key={index} className="dodont-item dodont-item--dont">{item}</p>)}
             </div>
           </div>
         </section>

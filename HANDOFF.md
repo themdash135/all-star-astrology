@@ -1,17 +1,22 @@
-# Handoff - 2026-03-24
+# Handoff - 2026-03-26
 
 ## Status
 
-The app is in a solid local-development state, not a store-distribution state.
+The app backend is **live on Google Cloud Run** and the Android release AAB is built and ready for Google Play upload. iOS CI/CD is configured and waiting for 2 remaining secrets.
 
-Backend daily guidance, Oracle Q&A, Android debug builds, and connected-device testing are working. The current product shape is Oracle-first, with Home merged into Oracle and the bottom navigation reduced to `Oracle | Systems | Combined | You`.
+**Cloud Run URL:** `https://allstar-astrology-816912350023.us-central1.run.app`
+- Health check returns `{"status":"ok"}`
+- Full end-to-end tested: onboarding → reading generation → all tabs working
+- Project: `allstar-astrology-ci` (GCP project ID: `816912350023`)
+- Region: `us-central1`, Memory: 1Gi, Port: 8080
 
-As of **March 13, 2026**, the current debug APK was reinstalled and relaunched successfully on two physical Android phones in this workspace:
+**Capacitor config** now points to Cloud Run (no more localhost dependency):
+```
+server: { url: 'https://allstar-astrology-816912350023.us-central1.run.app' }
+```
 
-- Samsung `SM_F900U`
-- Vivo `V2337A`
-
-The app still depends on the local backend at `http://127.0.0.1:8892`, and the practical failure mode on real devices is unchanged: if `adb reverse tcp:8892 tcp:8892` drops, the app may still open but reading generation will fail with a fetch/network-style error until the reverse mapping is restored.
+**Android release AAB** built and signed at:
+`frontend/android/app/build/outputs/bundle/release/app-release.aab` (3.8MB)
 
 ## Completed Work
 
@@ -47,6 +52,46 @@ The app still depends on the local backend at `http://127.0.0.1:8892`, and the p
 - Added Daily Content spec/plan docs and updated `CLAUDE.md`.
 - Fixed the Android local build path by using Java 11+ (`Y:\android_studio\jbr`) and syncing the Capacitor Android project.
 - Verified USB-connected device refresh flow using `adb reverse` plus app relaunch.
+
+## Admin Area + UX Fixes (added 2026-03-27)
+
+### Admin Area V1
+Built a full internal admin system at 5 pages, accessible via hidden route `#a9fK3x7q`:
+- **Health Dashboard** — generation counts (24h/7d), error counts, response times, success rate
+- **Quality Monitor** — quality flags (missing sections, short content, fallback detection, repetition), per-session status (healthy/review/poor)
+- **Feedback Admin** — view all user feedback tickets, reply inline, filter by category/status
+- **Usage Analytics** — event counts, section views, period filtering (24h/7d/30d)
+- **Session Inspector** — browse stored readings/compatibility reports, expand sections, view quality flags
+
+**Files:**
+- `backend/admin.py` — storage, quality heuristics, health aggregation, analytics, session listing (all file-based JSON/JSONL in `Saved/admin/`)
+- `frontend/src/components/Admin*.jsx` — 6 admin components (AdminApp, AdminHealth, AdminQuality, AdminFeedback, AdminAnalytics, AdminSessions)
+- `tests/test_admin.py` — 75 backend tests
+
+**Access:** Settings → tap version text 5 times within 4 seconds → enter `BACKEND_API_KEY` at gate. All admin API endpoints require `X-Backend-Key` header.
+
+**Admin API endpoints:**
+- `GET /api/admin/health` — health stats
+- `GET /api/admin/quality` — quality summary
+- `GET /api/admin/analytics` — usage analytics (accepts `?hours=`)
+- `GET /api/admin/sessions` — session list (accepts `?type=`, `?limit=`, `?offset=`)
+- `GET /api/admin/sessions/{id}` — session detail
+- `POST /api/admin/analytics/event` — frontend event tracking (no auth required)
+
+### Onboarding UX Fixes
+- **Hospital search** — switched from Photon/Komoot to Google Places API for reliable hospital/location autocomplete. Backend proxy at `GET /api/places/autocomplete?input=` (avoids CORS). API key: `AIzaSyCewcS7wNiDXGyWrjqjkHfyZoY0I3OhzfY` (project: `allstar-astrology-ci`)
+- **DOB picker** — replaced native `<input type="date">` with 3 separate Month/Day/Year dropdown selects (fixes Android date picker year selection bug)
+- **Birth location heading** — changed to "What hospital were you born in?" with hint text
+- **Partner step labels** — added visible labels ("Partner's date of birth", "Partner's birth time (optional)") and hospital accuracy hint above location field
+- **Replay protection** — increased from 30s to 120s (`_MAX_REQUEST_AGE_SECONDS`) to handle mobile clock skew
+
+### Feedback Fix
+- Removed `mailto:` redirect that opened email client after submission
+- Feedback now submits purely via backend API with in-app confirmation
+- Added SMTP email notification support (configurable via `FEEDBACK_EMAIL_TO`, `SMTP_USER`, `SMTP_PASS`, `SMTP_HOST`, `SMTP_PORT` env vars)
+
+### Dependencies Added
+- `httpx==0.28.1` in `requirements.txt` (async HTTP client for Google Places proxy)
 
 ## Neuro-Symbolic AI Engine (added 2026-03-24)
 
@@ -469,25 +514,63 @@ Ported select features from `frontend-v2/` ("The Ephemeris") into the main All S
 - APK installed on Vivo `10AE6E24TK0011K`
 - `adb reverse tcp:8892 tcp:8892` set
 
+## Cloud Run Deployment (completed 2026-03-26)
+
+### Dockerfile
+Multi-stage build at `Dockerfile`:
+- **Stage 1**: `node:20-slim` — `npm ci` + `npm run build` (builds frontend from source)
+- **Stage 2**: `python:3.12-slim` — `build-essential` for pyswisseph C compilation, `pip install` requirements, copies backend + frontend dist from stage 1
+- `frontend/dist/` is gitignored, so the multi-stage approach is necessary — Cloud Build uploads source via `.gitignore` rules
+
+### Deployment Command
+```
+gcloud run deploy allstar-astrology --source . --region us-central1 --allow-unauthenticated --port 8080 --memory 1Gi
+```
+Run from the repo root in Cloud Shell (`shell.cloud.google.com`), project `allstar-astrology-ci`.
+
+### Build Issues Resolved
+1. `pyswisseph` needs `build-essential` (not just `gcc`) on `python:3.12-slim`
+2. `frontend/dist/` excluded by `.gitignore` → fixed with multi-stage Docker build
+3. `lunardate` missing from `requirements.txt` → added
+
+## CI/CD & Store Submission (in progress 2026-03-26)
+
+### GitHub Secrets Configured (10/12)
+| Secret | Status |
+|--------|--------|
+| `ANDROID_KEYSTORE_BASE64` | Set |
+| `ANDROID_KEYSTORE_PASSWORD` | Set |
+| `ANDROID_KEY_ALIAS` | Set |
+| `ANDROID_KEY_PASSWORD` | Set |
+| `BUILD_CERTIFICATE_BASE64` | Set (from `.certs/distribution_b64.txt`) |
+| `BUILD_PROVISION_PROFILE_BASE64` | Set (from `.certs/provision_b64.txt`) |
+| `ASC_KEY_ID` | Set (`MGU3RYR43W`) |
+| `ASC_API_KEY` | Set (from `.certs/AuthKey_MGU3RYR43W.p8`) |
+| `KEYCHAIN_PASSWORD` | Set (`ci-build-temp`) |
+| `APPLE_TEAM_ID` | Set (`HLYD7FGZVU`) |
+| `P12_PASSWORD` | **NOT SET** — password for `distribution.p12` |
+| `ASC_ISSUER_ID` | **NOT SET** — from App Store Connect > Users & Access > Integrations |
+
+### Android (Google Play)
+- **Signed release AAB** already built locally: `frontend/android/app/build/outputs/bundle/release/app-release.aab`
+- **Keystore**: `frontend/android/upload-keystore.jks` (alias: `upload`, password: `changeit`)
+- **CI workflow**: `.github/workflows/android-build.yml` — builds AAB + uploads to Play Store internal track
+- **Missing for automated upload**: `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` secret (service account from Play Console > API access)
+- **Manual upload alternative**: Upload the AAB directly at Google Play Console
+
+### iOS (App Store)
+- **CI workflow**: `.github/workflows/ios-build.yml` — full pipeline: Xcode 26, cap add ios, pod install, archive, export IPA, upload to TestFlight
+- **Certs on disk**: `.certs/` has distribution.p12, provisioning profile, App Store Connect API key
+- **No local iOS project** — generated on-the-fly in CI via `npx cap add ios`
+- **Remaining**: Set `P12_PASSWORD` and `ASC_ISSUER_ID` secrets, then trigger workflow via `gh workflow run ios-build.yml`
+
 ## Current Reality / Not Done Yet
 
-- The app is still configured like a development build for native device testing:
-  - `frontend/capacitor.config.ts` includes `server.url = 'http://127.0.0.1:8892'`
-  - Android generated config mirrors that dev server setting
-  - This means the installed app depends on the local backend and, for a physical Android phone, `adb reverse`
-  - if the USB/ADB session resets, the reverse mapping can disappear silently; in that state the app may launch but reading generation fails until `adb reverse tcp:8892 tcp:8892` is run again and the app is relaunched
 - Store billing is not wired:
   - `Manage Subscription` is UI-only
   - no Google Play Billing / App Store subscription implementation yet
 - `Rate This App` and `Share with Friends` are intentionally deferred until store-launch work
-- No iOS native project is present in this workspace yet
-- Production deployment work is still outstanding:
-  - remove Capacitor dev `server.url`
-  - serve bundled app assets in native builds
-  - use a real hosted backend over HTTPS
-  - create release signing / release config
-  - prepare store metadata, assets, privacy disclosures, and submission requirements
-- The workspace is a git repository (main branch)
+- The workspace is a git repository (main branch, public at `github.com/themdash135/all-star-astrology`)
 
 ## Full Combined Analysis (2026-03-25)
 
@@ -550,27 +633,72 @@ New immersive page accessed from Today tab CTA and Games CTA:
 - `_cdp_eval.py auto "<js>"` — execute JS in phone WebView via Chrome DevTools Protocol
 - `_phone.sh <cmd>` — unified ADB operations (screenshot, tap, swipe, deploy, js)
 
+## Live Device Validation (2026-03-28, in progress)
+
+Ran automated CDP-based audit on Vivo X Fold 3 Pro via `_audit_tabs.py` and `_inject_reading.py`. 58 screenshots captured in `_audit_shots/`.
+
+### Completed Testing
+- **Onboarding flow (screenshots 00–08):**
+  - Splash screen loads
+  - DOB picker: month/day/year dropdown selects render and accept input
+  - Birth time step renders with input
+  - Birth location step: Google Places autocomplete works (typed hospital, results populated, selected)
+  - Name step renders with input field
+  - Partner step renders with labels and hints visible
+  - Theme picker screen renders
+  - Loading screen appears during reading generation
+  - Reading completes successfully — no "Request expired" or 500 errors
+- **Today tab (screenshots 09, 20):**
+  - Agreement Spectrum renders with 8 colored system dots
+  - Life Area Score Dot-Plot shows Career/Love/Health/Money/Mood rows with scores and agreement counts
+  - Daily pull-quote with focus/caution/anchor metadata
+  - Do/Don't columns populate
+  - Status line shows moon phase, planetary hour, day ruler
+  - "View Full Cosmic Intelligence Report" CTA button present
+- **Systems tab (screenshots 10, 21):**
+  - All 8 system rows render with icons, headlines, mini score bars
+  - Tapped into a system detail view — overlay with Reading/Evidence/Data sub-tabs loads
+  - Back button from detail works
+- **Oracle tab (screenshots 11, 22):**
+  - Textarea and submit button render
+  - Starter prompt chips visible
+- **Games tab (screenshots 12, 23):**
+  - Game buttons render and are scrollable
+- **Readings tab (screenshots 13, 24):**
+  - Content renders, scrollable through multiple sections
+- **Feedback tab (screenshots 14, 25):**
+  - Input fields render (no mailto: redirect confirmed in earlier testing)
+- **Settings (screenshots 15, 26):**
+  - Settings page loads from gear icon
+  - Buttons visible, scrollable
+- **Full Combined Analysis (screenshots 16, 27):**
+  - CTA from Today tab navigates to analysis page
+  - Hero, Score Nexus, Neural Constellation, Life Area Intelligence sections render
+  - Scrollable through all sections including deep scroll
+
+### Not Yet Completed
+- **Oracle ask test** — did not submit a question and verify response on device
+- **Games play-through** — did not tap into a game and verify it works
+- **Readings detail** — did not tap into a specific reading section
+- **Feedback submit** — did not submit feedback and verify in-app confirmation
+- **Settings actions** — did not test Reset, Privacy Policy, Terms, Manage Subscription
+- **Admin access** — did not test 5-tap version → admin gate → admin pages on device
+- **UX audit** — not started (Phase 3): evaluate clarity, labels, trust, friction across all screens
+- **Fix pass** — not started (Phase 4): fix highest-value issues found
+- **Re-validation** — not started (Phase 5): confirm fixes on device, check regressions
+
 ## Next Steps
 
-1. Convert the native app from dev-server mode to production mode:
-   - remove `server.url` from `frontend/capacitor.config.ts`
-   - rebuild frontend assets
-   - sync native projects again
-2. Decide the production backend plan:
-   - hosting target
-   - HTTPS domain
-   - environment config
-   - mobile API base strategy
-3. Implement real subscriptions:
+1. **Finish store submission** (immediate):
+   - Set 2 remaining iOS secrets: `P12_PASSWORD`, `ASC_ISSUER_ID`
+   - Optionally set `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` for automated Play Store upload, or upload AAB manually
+   - Trigger iOS workflow: `gh workflow run ios-build.yml`
+   - Upload Android AAB to Google Play Console internal testing track
+2. **Implement real subscriptions**:
    - Google Play Billing
    - Apple App Store subscriptions
    - account/state handling in app
-4. Add iOS support:
-   - install Capacitor iOS package
-   - create `frontend/ios`
-   - test on real iPhone / simulator
-5. Run distribution QA:
-   - Android release build
-   - iOS archive/build
+3. **Post-launch polish**:
+   - `Rate This App` and `Share with Friends` deep links
    - offline/error-state testing
-   - legal/store copy review
+   - analytics/crash reporting

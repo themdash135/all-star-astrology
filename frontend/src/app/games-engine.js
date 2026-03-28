@@ -151,6 +151,12 @@ export function lifePath(dateStr) {
 
 // ── Game implementations ──
 
+function ordinal(n) {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
 export function playDice() {
   const seed = `dice-${Date.now()}-${Math.random()}`;
   const rng = seededRandom(seed);
@@ -167,8 +173,8 @@ export function playDice() {
     planet_meaning: PLANET_MEANINGS[planet],
     house_meaning: HOUSE_MEANINGS[house],
     teaser: `The cosmos points to ${PLANET_MEANINGS[planet]} expressed through ${sign} in the realm of ${HOUSE_MEANINGS[house]}.`,
-    premium_text: `${planet} in ${sign} in the ${house}th house reveals a powerful alignment. The ${SIGN_ELEMENTS[sign]} element charges ${planet}\u2019s energy around ${PLANET_MEANINGS[planet]}, directing it toward ${HOUSE_MEANINGS[house]}. Pay attention to synchronicities in this area.`,
-    cta_label: 'View Full Western Analysis',
+    premium_text: `${planet} in ${sign} in the ${ordinal(house)} house reveals a powerful alignment. The ${SIGN_ELEMENTS[sign]} element charges ${planet}\u2019s energy around ${PLANET_MEANINGS[planet]}, directing it toward ${HOUSE_MEANINGS[house]}. Pay attention to synchronicities in this area.`,
+    cta_label: 'View Full Cosmic Intelligence Report',
     cta_system: 'combined-systems',
   };
 }
@@ -244,7 +250,7 @@ export function playNumerology(birthDate) {
     trait: info.trait,
     teaser: `Life Path ${lp}: ${info.trait}. ${info.teaser}`,
     premium_text: info.premium,
-    cta_label: 'View Full Numerology System',
+    cta_label: 'View Full Cosmic Intelligence Report',
     cta_system: 'combined-systems',
   };
 }

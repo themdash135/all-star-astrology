@@ -40,6 +40,17 @@ export function readStoredForm() {
   }
 }
 
+export function isValidReading(obj) {
+  return (
+    obj != null &&
+    typeof obj === 'object' &&
+    typeof obj.systems === 'object' &&
+    obj.systems !== null &&
+    Object.keys(obj.systems).length > 0 &&
+    obj.meta != null
+  );
+}
+
 export function readStoredResult() {
   const raw = safeGet(RESULT_KEY);
   if (!raw) {
@@ -47,7 +58,12 @@ export function readStoredResult() {
   }
 
   try {
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (!isValidReading(parsed)) {
+      safeRemove(RESULT_KEY);
+      return null;
+    }
+    return parsed;
   } catch {
     return null;
   }
