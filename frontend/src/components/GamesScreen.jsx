@@ -265,6 +265,9 @@ export function GamesScreen({ form, onNavigate }) {
             </button>
           )}
 
+          <button type="button" className="gm-again" onClick={goBack}>
+            &#x2726; Back to Games
+          </button>
         </div>
       )}
     </div>
