@@ -23,7 +23,7 @@ from backend.engines import bazi, chinese, combined, daily, gematria, games, kab
 from backend.engines.common import CalculationError, build_context
 from backend.engines.oracle import compose_response as oracle_compose
 from backend.engines.pipeline.answer_composer import SYSTEM_NAMES
-from backend.engines.pipeline.engine import run as pipeline_run, ADAPTERS
+from backend.engines.pipeline.engine import run as pipeline_run, ADAPTERS, _current_adapters
 from backend.engines.pipeline.intent_classifier import classify as classify_intent
 from backend.engines.pipeline.aggregator import aggregate
 from backend.engines.pipeline.moon_phase import compute_phase, PHASES as MOON_PHASES
@@ -168,7 +168,9 @@ app.add_middleware(
 )
 
 
-_MAX_REQUEST_AGE_SECONDS = 120
+# Legit mobile devices can drift several minutes from server time.
+# 600s window covers even heavily-skewed mobile clocks.
+_MAX_REQUEST_AGE_SECONDS = 600
 _BACKEND_API_KEY = os.getenv("BACKEND_API_KEY", "")
 
 
@@ -728,9 +730,10 @@ def v2_scores(payload: V2ScoresRequest) -> dict[str, Any]:
             # Run all adapters
             opinions: list[SystemOpinion] = []
             per_system: dict[str, dict[str, Any]] = {}
+            adapters = _current_adapters()
 
             for sys_id in _ALL_SYSTEM_IDS:
-                adapter = ADAPTERS.get(sys_id)
+                adapter = adapters.get(sys_id)
                 if adapter is None:
                     continue
                 sys_data = systems_data.get(sys_id, {})
