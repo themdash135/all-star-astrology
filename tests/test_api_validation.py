@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import pathlib
 import sys
 
 import pytest
 from pydantic import ValidationError
+from fastapi.testclient import TestClient
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-from backend.main import AskRequest, ReadingRequest
+from backend.main import AskRequest, ReadingRequest, app
 
 
 class TestReadingRequestValidation:
@@ -55,3 +57,41 @@ class TestAskRequestValidation:
     def test_rejects_oversized_reading_context(self):
         with pytest.raises(ValidationError, match="too large"):
             AskRequest(question="Will this work?", reading_data={"blob": "x" * 600_000})
+
+
+class TestReplayProtection:
+    def test_allows_legit_mobile_clock_skew_within_five_minutes(self):
+        client = TestClient(app)
+        skewed_now = dt.datetime.now(dt.timezone.utc).timestamp() + 180
+
+        response = client.post(
+            "/api/feedback/submit",
+            headers={"X-Request-Time": str(skewed_now)},
+            json={
+                "email": "clock-skew-user",
+                "category": "other",
+                "message": "Testing request skew tolerance.",
+                "name": "Clock Skew User",
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "ok"
+
+    def test_rejects_requests_older_than_ten_minutes(self):
+        client = TestClient(app)
+        expired = dt.datetime.now(dt.timezone.utc).timestamp() - 601
+
+        response = client.post(
+            "/api/feedback/submit",
+            headers={"X-Request-Time": str(expired)},
+            json={
+                "email": "expired-user",
+                "category": "other",
+                "message": "This request should expire.",
+                "name": "Expired User",
+            },
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Request expired. Please try again."

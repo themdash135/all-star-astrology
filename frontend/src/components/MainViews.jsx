@@ -516,21 +516,13 @@ function PartnerInfoSection() {
     if (locQuery.length < 3) { setGeoResults([]); return; }
     clearTimeout(geoTimer.current);
     geoTimer.current = setTimeout(() => {
-      fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(locDisplay)}&limit=6&lang=en`)
-        .then(r => r.ok ? r.json() : { features: [] })
+      fetch(`/api/places/autocomplete?input=${encodeURIComponent(locDisplay)}`)
+        .then(r => r.ok ? r.json() : { predictions: [] })
         .then(data => {
-          setGeoResults((data.features || []).map(f => {
-            const p = f.properties || {};
-            const nm = p.name || '';
-            const city = p.city || p.town || p.village || '';
-            const state = p.state || '';
-            const country = p.country || '';
-            const label = (nm && nm !== city
-              ? [nm, city, state, country]
-              : [city, state, country]
-            ).filter(Boolean).join(', ').slice(0, 80);
-            return { label, value: label };
-          }));
+          setGeoResults((data.predictions || []).map((prediction) => ({
+            label: prediction.description || '',
+            value: prediction.description || '',
+          })));
         })
         .catch(() => setGeoResults([]));
     }, 350);
@@ -587,6 +579,7 @@ function PartnerInfoSection() {
           <label className="mm-field-label">Birth Time (optional)</label>
           <input className="mm-input" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
           <label className="mm-field-label">Where were they born?</label>
+          <p className="ob-hint" style={{ marginTop: 4, marginBottom: 10 }}>Hospital name gives more accuracy for BaZi and Vedic calculations.</p>
           <div style={{ position: 'relative' }}>
             <input className="mm-input" type="text" placeholder="Where were they born (Hospital name preferred)?" value={locDisplay}
               onChange={(e) => { setLocDisplay(e.target.value); setLocation(e.target.value); }}
@@ -648,7 +641,7 @@ function PatternDashboard() {
       });
     }
 
-    const confs = history.filter(h => h.confidence != null).map(h => h.confidence);
+    const confs = history.filter(h => h.confidence != null && h.confidence > 0).map(h => h.confidence);
     if (confs.length >= 3) {
       const recent = confs.slice(0, 3).reduce((a, b) => a + b, 0) / 3;
       const trend = recent > 0.7 ? 'rising' : recent < 0.4 ? 'falling' : 'steady';
@@ -686,7 +679,6 @@ function PatternDashboard() {
 }
 
 export function ProfileContent({ form, result, onEdit, onReset, theme, setTheme, motionSetting, setMotionSetting, onBack }) {
-  const [notifications, setNotifications] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [panel, setPanel] = useState('main');
 
@@ -834,7 +826,7 @@ export function ProfileContent({ form, result, onEdit, onReset, theme, setTheme,
               <button type="button" className={`segmented-btn ${motionSetting === 'full' ? 'segmented-btn--on' : ''}`} onClick={() => setMotionSetting('full')}>Full</button>
             </div>
           </div>
-          <div className="prow"><span>Notifications</span><Toggle value={notifications} onChange={setNotifications} label="Toggle notifications" /></div>
+          <div className="prow"><span>Notifications</span><span className="prow-coming-soon">Coming soon</span></div>
         </div>
       </div>
 
@@ -851,15 +843,12 @@ export function ProfileContent({ form, result, onEdit, onReset, theme, setTheme,
           )}
           <button type="button" className="prow prow--btn" onClick={() => setPanel('privacy')}><span>Privacy Policy</span><IconChevron /></button>
           <button type="button" className="prow prow--btn" onClick={() => setPanel('terms')}><span>Terms of Use</span><IconChevron /></button>
-          <button type="button" className="prow prow--btn" onClick={() => setPanel('subscription')}><span>Manage Subscription</span><IconChevron /></button>
-          <div className="prow-note">
-            Rate This App and Share with Friends will be added when the App Store and Google Play builds are live.
-          </div>
+          <button type="button" className="prow prow--btn" onClick={() => setPanel('subscription')}><span>Subscription</span><span className="prow-coming-soon" style={{marginLeft:'auto',marginRight:8}}>Coming soon</span><IconChevron /></button>
         </div>
       </div>
 
       <button type="button" className="btn-danger" onClick={onReset}>Reset All Data</button>
-      <div className="prof-ver" onClick={_onVerTap}>All Star Astrology v1.1.0</div>
+      <div className="prof-ver" onClick={_onVerTap}>All Star Astrology v1.1.1</div>
     </div>
   );
 }
