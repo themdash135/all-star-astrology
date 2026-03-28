@@ -4,12 +4,13 @@ import { IconSettings } from './common.jsx';
 
 const V2_SYSTEMS = SYSTEMS.map(s => ({ id: s.id, name: s.name, color: `var(--sys-${s.id})` }));
 
+// key = v2/scores domain key; altKey = combined.probabilities key (fallback)
 const V2_AREAS = [
-  { key: 'career', label: 'Career' },
-  { key: 'love', label: 'Love' },
-  { key: 'health', label: 'Health' },
-  { key: 'wealth', label: 'Money' },
-  { key: 'mood', label: 'Mood' },
+  { key: 'career', altKey: 'career', label: 'Career' },
+  { key: 'love', altKey: 'love', label: 'Love' },
+  { key: 'health', altKey: 'health', label: 'Health' },
+  { key: 'money', altKey: 'wealth', label: 'Money' },
+  { key: 'creativity', altKey: 'mood', label: 'Mood' },
 ];
 
 function getOverallAgreement(combined) {
@@ -111,25 +112,32 @@ function AgreementSpectrum({ result }) {
 function ScoreDotPlot({ result, scores }) {
   const rows = useMemo(() => {
     const items = [];
+    // Try v2/scores first, but only if it has real data (non-empty systems)
     if (scores?.scores) {
-      for (const area of V2_AREAS) {
-        const s = scores.scores[area.key];
-        if (!s) continue;
-        const score = typeof s.score === 'number' ? s.score : 0;
-        const display = score > 0 ? `+${score.toFixed(1)}` : score.toFixed(1);
-        const pos = ((score + 3) / 6) * 100;
-        const color = score >= 0.5 ? 'var(--positive)' : score >= -0.5 ? 'var(--neutral)' : 'var(--negative)';
-        const sysCount = s.systems ? Object.keys(s.systems).length : 8;
-        const agreeCount = s.systems
-          ? Object.values(s.systems).filter(x => x.favorable > 0.5).length
-          : Math.round((s.favorable || 0.5) * 8);
-        items.push({ ...area, score, display, pos, color, agree: `${agreeCount}/${sysCount}` });
+      const hasRealData = Object.values(scores.scores).some(
+        s => s.systems && Object.keys(s.systems).length > 0
+      );
+      if (hasRealData) {
+        for (const area of V2_AREAS) {
+          const s = scores.scores[area.key];
+          if (!s) continue;
+          const score = typeof s.score === 'number' ? s.score : 0;
+          const display = score > 0 ? `+${score.toFixed(1)}` : score.toFixed(1);
+          const pos = ((score + 3) / 6) * 100;
+          const color = score >= 0.5 ? 'var(--positive)' : score >= -0.5 ? 'var(--neutral)' : 'var(--negative)';
+          const sysCount = s.systems ? Object.keys(s.systems).length : 8;
+          const agreeCount = s.systems
+            ? Object.values(s.systems).filter(x => x.favorable > 0.5).length
+            : Math.round((s.favorable || 0.5) * 8);
+          items.push({ ...area, score, display, pos, color, agree: `${agreeCount}/${sysCount}` });
+        }
       }
     }
+    // Fallback to combined probabilities
     if (items.length === 0 && result?.combined?.probabilities) {
       const probs = result.combined.probabilities;
       for (const area of V2_AREAS) {
-        const p = probs[area.key];
+        const p = probs[area.altKey || area.key];
         if (!p) continue;
         const val = typeof p.value === 'number' ? p.value : 50;
         const score = (val / 100) * 6 - 3;

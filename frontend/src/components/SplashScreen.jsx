@@ -46,7 +46,7 @@ export function SplashScreen({ onStart, onRestore }) {
 
       <div className="splash-actions">
         <button type="button" className="btn-gold" onClick={onStart}>Begin Your Journey</button>
-        <button type="button" className="splash-link" onClick={onRestore}>I have an account</button>
+        <button type="button" className="splash-link" onClick={onRestore}>Restore my reading</button>
       </div>
     </div>
   );
