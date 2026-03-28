@@ -249,7 +249,8 @@ input:focus-visible,
 .btn-danger { display:block; width:100%; min-height:44px; border-radius:var(--r-md); color:#ef4444; font-size:var(--fs-base); font-weight:600; margin-top:var(--sp-md); background:rgba(239,68,68,.06); border:1px solid rgba(239,68,68,.12); }
 
 /* ── Onboarding ── */
-.ob-screen { justify-content:center; background:var(--bg); padding-top:var(--sp-3xl); padding-bottom:var(--sp-3xl); }
+.ob-screen { justify-content:center; background:var(--bg); padding-top:var(--sp-3xl); padding-bottom:var(--sp-3xl); position:relative; }
+.ob-cancel { position:absolute; top:var(--sp-md); left:var(--sp-md); background:none; border:none; color:var(--acc); font:var(--font-sm)/1 var(--ff); cursor:pointer; z-index:2; padding:var(--sp-xs) var(--sp-sm); }
 .ob-dots { display:flex; gap:var(--sp-sm); justify-content:center; padding:var(--sp-xl) 0 var(--sp-md); position:absolute; top:0; left:0; right:0; }
 .ob-dot { width:6px; height:6px; border-radius:var(--r-full); background:rgba(255,255,255,.1); transition:all .3s var(--ease-smooth); }
 [data-theme="light"] .ob-dot { background:rgba(0,0,0,.1); }
