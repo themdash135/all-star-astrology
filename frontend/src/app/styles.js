@@ -4671,6 +4671,11 @@ input:focus-visible,
   gap: 0;
   border-bottom: 1px solid var(--border);
   margin-bottom: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg);
+  padding-top: 4px;
 }
 .v2-sys-tab {
   font: 500 13px/1 var(--sans);
@@ -4681,6 +4686,7 @@ input:focus-visible,
   cursor: pointer;
   position: relative;
   transition: color 0.15s;
+  touch-action: manipulation;
 }
 .v2-sys-tab:hover { color: var(--text-secondary); }
 .v2-sys-tab.active { color: var(--text); }

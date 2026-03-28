@@ -731,7 +731,8 @@ export function ProfileContent({ form, result, onEdit, onReset, theme, setTheme,
 
   const effectiveDate = form.birth_date || result?.meta?.birth_date || '';
   const effectiveTime = form.birth_time || result?.meta?.birth_time || '';
-  const effectiveLocation = form.birth_location || result?.meta?.resolved_location || result?.meta?.birth_location || '';
+  const rawLoc = result?.meta?.resolved_location;
+  const effectiveLocation = form.birth_location || (typeof rawLoc === 'string' ? rawLoc : rawLoc?.name || rawLoc?.query || '') || result?.meta?.birth_location || '';
   const birthString = effectiveDate
     ? new Date(`${effectiveDate}T12:00`).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     : 'Not set';

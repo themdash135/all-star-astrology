@@ -891,5 +891,14 @@ export function playSystemGame(gameId, result, form, inputs, seed) {
   const fn = PLAY_FUNCTIONS[gameId];
   if (!fn) return { error: `Unknown game: ${gameId}` };
   const dailySeed = seed || new Date().toISOString().slice(0, 10);
-  return fn(result, form, inputs || {}, dailySeed);
+  // Fall back to result.meta for birth data when form is empty
+  const meta = result?.meta || {};
+  const effectiveForm = {
+    ...form,
+    birth_date: form?.birth_date || meta.birth_date || '',
+    birth_time: form?.birth_time || meta.birth_time || '',
+    birth_location: form?.birth_location || meta.birth_location || '',
+    full_name: form?.full_name || '',
+  };
+  return fn(result, effectiveForm, inputs || {}, dailySeed);
 }
