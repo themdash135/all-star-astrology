@@ -6522,13 +6522,13 @@ input:focus-visible,
   }
   .admin-nav {
     flex-direction:row; border-right:none; border-bottom:1px solid var(--glass-border);
-    padding:var(--sp-sm) var(--sp-sm); gap:0; overflow-x:auto; overflow-y:hidden;
+    padding:0 var(--sp-sm); gap:0; overflow-x:auto; overflow-y:hidden;
   }
   .admin-nav__header { display:none; }
   .admin-nav a, .admin-nav button {
-    width:auto; white-space:nowrap; padding:var(--sp-xs) var(--sp-md);
-    border-left:none; border-bottom:2px solid transparent; text-align:center;
-    font-size:var(--fs-sm);
+    width:auto; white-space:nowrap; padding:var(--sp-md) var(--sp-lg);
+    border-left:none; border-bottom:3px solid transparent; text-align:center;
+    font-size:var(--fs-base); min-height:44px; display:flex; align-items:center; justify-content:center;
   }
   .admin-nav a.active, .admin-nav button.active {
     border-left-color:transparent; border-bottom-color:var(--gold);
