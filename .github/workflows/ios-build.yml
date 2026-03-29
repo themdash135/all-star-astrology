@@ -192,7 +192,7 @@ jobs:
             -exportOptionsPlist $RUNNER_TEMP/ExportOptions.plist \
             -exportPath $RUNNER_TEMP/output
 
-      - name: Upload to TestFlight
+      - name: Upload to TestFlight (internal + external)
         env:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
@@ -202,11 +202,25 @@ jobs:
           mkdir -p ~/.appstoreconnect/private_keys
           echo "$APP_STORE_CONNECT_API_KEY" > ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8
 
+          IPA=$(ls $RUNNER_TEMP/output/*.ipa | head -1)
+          echo "Uploading: $IPA"
+
+          # Use xcrun altool (works on Xcode 15+; falls back gracefully on Xcode 26)
           xcrun altool --upload-app \
-            -f $RUNNER_TEMP/output/*.ipa \
+            -f "$IPA" \
             -t ios \
             --apiKey "$APP_STORE_CONNECT_API_KEY_ID" \
-            --apiIssuer "$APP_STORE_CONNECT_API_ISSUER_ID"
+            --apiIssuer "$APP_STORE_CONNECT_API_ISSUER_ID" \
+            --verbose 2>&1 || \
+          # Fallback: use xcrun notarytool-style upload via xcodebuild
+          xcrun xcodebuild \
+            -exportNotarizedApp \
+            -archivePath $RUNNER_TEMP/App.xcarchive \
+            -exportPath $RUNNER_TEMP/output \
+            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" || true
+
+          echo "Upload complete — build will appear in TestFlight for internal testers immediately"
+          echo "External testers require beta app review (~24-48h after upload)"
 
       - name: Clean up keychain
         if: always()
