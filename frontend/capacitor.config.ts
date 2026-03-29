@@ -5,7 +5,8 @@ const config: CapacitorConfig = {
   appName: 'All Star Astrology',
   webDir: 'dist',
   server: {
-    url: 'https://allstar-astrology-816912350023.us-central1.run.app',
+    url: process.env.ASTRO_CAP_SERVER_URL || 'https://allstar-astrology-816912350023.us-central1.run.app',
+    cleartext: (process.env.ASTRO_CAP_SERVER_URL || '').startsWith('http://'),
   },
 };
 
