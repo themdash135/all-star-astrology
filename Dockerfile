@@ -21,6 +21,11 @@ COPY --from=frontend-build /app/frontend/dist/ frontend/dist/
 
 # Run as non-root user
 RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+
+# Create writable admin storage directory before dropping privileges
+RUN mkdir -p Saved/admin/readings Saved/admin/compatibility && \
+    chown -R appuser:appgroup Saved
+
 USER appuser
 
 EXPOSE 8080

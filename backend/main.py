@@ -963,7 +963,11 @@ async def admin_health(request: Request) -> dict:
     key = request.headers.get("X-Backend-Key", "")
     if not _ADMIN_SECRET or key != _ADMIN_SECRET:
         raise HTTPException(status_code=403, detail="Forbidden")
-    return admin_module.get_health()
+    try:
+        return admin_module.get_health()
+    except Exception as exc:
+        logger.exception("Error in admin health endpoint")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @app.get("/api/admin/quality")
