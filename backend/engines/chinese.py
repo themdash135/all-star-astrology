@@ -283,7 +283,7 @@ def calculate(context: dict[str, Any]) -> dict[str, Any]:
     clash_animal = None
     for pair in CLASH_PAIRS:
         if natal_animal in pair:
-            clash_animal = (pair - {natal_animal}).pop()
+            clash_animal = next(iter(pair - {natal_animal}))
             break
 
     # Build compatibility frame text with inlined animals.
