@@ -40,7 +40,8 @@ function buildDateStr(month, day, year) {
 }
 
 function DateSelect({ value, onChange, label }) {
-  const parts = parseDateStr(value);
+  const initial = parseDateStr(value);
+  const [parts, setParts] = useState(initial);
   const maxDay = daysInMonth(Number(parts.month), Number(parts.year));
   const days = Array.from({ length: maxDay }, (_, i) => i + 1);
 
@@ -49,7 +50,9 @@ function DateSelect({ value, onChange, label }) {
     if (field === 'month' && Number(next.day) > daysInMonth(Number(val), Number(next.year))) {
       next.day = '';
     }
-    onChange(buildDateStr(next.month, next.day, next.year));
+    setParts(next);
+    const dateStr = buildDateStr(next.month, next.day, next.year);
+    if (dateStr) onChange(dateStr);
   };
 
   return (
