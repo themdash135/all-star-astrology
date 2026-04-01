@@ -83,6 +83,6 @@ jobs:
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.allstarastrology.app
-          releaseFiles: frontend/android/app/build/outputs/bundle/release/app-release.aab
           track: alpha
+          fromTrack: internal
           status: draft
