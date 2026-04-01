@@ -164,6 +164,7 @@ export function OracleScreen({ result, reducedMotion, onOpenSettings }) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [shareFeedback, setShareFeedback] = useState('');
   const shareFeedbackTimeoutRef = useRef(null);
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     safeSet(ORACLE_HISTORY_KEY, JSON.stringify(history));
@@ -181,9 +182,10 @@ export function OracleScreen({ result, reducedMotion, onOpenSettings }) {
 
   async function submitQuestion(rawQuestion = question) {
     const trimmed = rawQuestion.trim();
-    if (!trimmed || loading || revealing) {
+    if (!trimmed || loading || revealing || submittingRef.current) {
       return;
     }
+    submittingRef.current = true;
 
     setLoading(true);
     setAnswer(null);
@@ -206,6 +208,7 @@ export function OracleScreen({ result, reducedMotion, onOpenSettings }) {
     }
 
     setLoading(false);
+    submittingRef.current = false;
     setRevealing(true);
     window.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' });
     window.setTimeout(() => {
@@ -242,6 +245,7 @@ export function OracleScreen({ result, reducedMotion, onOpenSettings }) {
     setAnswer(null);
     setRevealing(false);
     setLoading(false);
+    submittingRef.current = false;
     setShareFeedback('');
   }
 

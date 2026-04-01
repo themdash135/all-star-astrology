@@ -47,12 +47,13 @@ function DateSelect({ value, onChange, label }) {
 
   const update = (field, val) => {
     const next = { ...parts, [field]: val };
-    if (field === 'month' && Number(next.day) > daysInMonth(Number(val), Number(next.year))) {
+    if ((field === 'month' || field === 'year') && Number(next.day) > daysInMonth(Number(next.month), Number(next.year))) {
       next.day = '';
     }
     setParts(next);
     const dateStr = buildDateStr(next.month, next.day, next.year);
     if (dateStr) onChange(dateStr);
+    else onChange('');
   };
 
   return (

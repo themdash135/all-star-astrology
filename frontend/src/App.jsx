@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useCallback, useState, useRef } from 'react';
 import { App as CapApp } from '@capacitor/app';
 
 import { BLANK, FORM_KEY, MOTION_KEY, ORACLE_HISTORY_KEY, RESULT_KEY, SPLASH_KEY, THEME_KEY } from './app/constants.js';
@@ -26,6 +26,8 @@ import { SystemsTabV2 } from './components/SystemsTabV2.jsx';
 import { FullCombinedAnalysis } from './components/FullCombinedAnalysis.jsx';
 import AdminApp from './components/AdminApp.jsx';
 
+window.__editSnapshot = null;
+
 export default function App() {
   const _AH = '#a9fK3x7q';
   const [isAdmin, setIsAdmin] = useState(() => window.location.hash === _AH);
@@ -37,6 +39,8 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [securityWarning, setSecurityWarning] = useState(null);
+  // window.__editSnapshot is a module-level variable (not React state) to avoid
+  // any tree-shaking or closure issues in production builds.
 
   useEffect(() => {
     const check = runSecurityChecks();
@@ -92,7 +96,9 @@ export default function App() {
   }, [result]);
 
   useEffect(() => {
-    safeSet(FORM_KEY, JSON.stringify(form));
+    if (!window.__editSnapshot) {
+      safeSet(FORM_KEY, JSON.stringify(form));
+    }
   }, [form]);
 
   useEffect(() => {
@@ -200,6 +206,7 @@ export default function App() {
   }
 
   function handleEdit() {
+    window.__editSnapshot = JSON.parse(JSON.stringify(form));
     setView('onboarding');
     setDetailSystem(null);
   }
@@ -258,7 +265,7 @@ export default function App() {
           form={form}
           setForm={setForm}
           onSubmit={handleGenerate}
-          onCancel={result ? () => { setView('main'); } : undefined}
+          onCancel={result ? () => { if (window.__editSnapshot) { const saved = window.__editSnapshot; window.__editSnapshot = null; setForm({ ...saved }); } setView('main'); } : undefined}
           loading={loading}
           error={error}
           theme={theme}
